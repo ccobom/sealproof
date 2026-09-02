@@ -1,0 +1,148 @@
+<!doctype html>
+<!-- Frozen Day 3 interaction prototype. This is not the production application. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SEALPROOF — Walking Skeleton</title>
+    <style>
+      body { font-family: sans-serif; max-width: 42rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+      section[hidden] { display: none; }
+      label { display: block; margin: 1rem 0; }
+      input, textarea, button { box-sizing: border-box; font: inherit; padding: 0.6rem; }
+      input, textarea { display: block; width: 100%; }
+      textarea { min-height: 8rem; }
+      button { margin-top: 1rem; cursor: pointer; }
+      .notice { border: 2px solid; padding: 1rem; }
+      .fake { background: #fff4cc; border: 1px solid #8a6d00; padding: 0.75rem; }
+      .summary { white-space: pre-wrap; background: #eee; padding: 1rem; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>SEALPROOF</strong>
+      <small> — intentionally ugly Day 3 walking skeleton</small>
+    </header>
+
+    <main>
+      <section data-screen="1">
+        <h1>Seal an A/V release</h1>
+        <p>Collect a release now. Both parties will eventually receive the same completed record.</p>
+        <button type="button" data-next>Start a new release</button>
+      </section>
+
+      <section data-screen="2" hidden>
+        <h1>Production setup</h1>
+        <label>Production or producer name <input id="productionName" required></label>
+        <label>Production email <input id="productionEmail" type="email" required></label>
+        <label>Project title <input id="projectTitle" required></label>
+        <label>Release text <textarea id="releaseText" required>For this walking-skeleton test, the signer agrees to appear in the named project.</textarea></label>
+        <button type="button" id="saveSetup">Continue</button>
+      </section>
+
+      <section data-screen="3" hidden>
+        <h1>Hand the device to the signer</h1>
+        <div class="notice">
+          Production: please give this device to the person who will review and sign the release.
+        </div>
+        <button type="button" data-next>I am the signer</button>
+      </section>
+
+      <section data-screen="4" hidden>
+        <h1>Review the release</h1>
+        <div id="signerSummary" class="summary"></div>
+        <label>Your full name <input id="signerName" required></label>
+        <label>Your email <input id="signerEmail" type="email" required></label>
+        <label>Date <input id="signedDate" type="date" required></label>
+        <label><input id="agreement" type="checkbox" style="display:inline;width:auto"> I have read and agree to this release.</label>
+        <button type="button" id="acceptRelease">Continue</button>
+      </section>
+
+      <section data-screen="5" hidden>
+        <h1>Photo and signature</h1>
+        <p class="fake"><strong>FAKE:</strong> This skeleton does not access the camera or capture a legal signature.</p>
+        <button type="button" id="fakePhoto">Take placeholder photo</button>
+        <p id="photoStatus">No placeholder photo taken.</p>
+        <label>Placeholder signature <input id="fakeSignature" placeholder="Type your name for this test"></label>
+        <button type="button" id="finishInputs">Finish / Finalize</button>
+      </section>
+
+      <section data-screen="6" hidden>
+        <h1>Sealing…</h1>
+        <p class="fake"><strong>FAKE:</strong> No PDF, hash, email, audit record, or deletion is happening yet.</p>
+        <p>This screen simulates processing and will continue automatically.</p>
+      </section>
+
+      <section data-screen="7" hidden>
+        <h1>THE CONTRACT IS SEALED.</h1>
+        <p>You are finished. You may hand the device back to production.</p>
+        <p class="fake"><strong>TEST NOTICE:</strong> This was only a walking-skeleton demonstration. Nothing was sent or stored.</p>
+        <button type="button" id="restart">Return to the start</button>
+      </section>
+    </main>
+
+    <script>
+      let currentScreen = 1;
+      let placeholderPhotoTaken = false;
+
+      function showScreen(number) {
+        document.querySelectorAll("[data-screen]").forEach((section) => {
+          section.hidden = Number(section.dataset.screen) !== number;
+        });
+        currentScreen = number;
+        window.scrollTo(0, 0);
+      }
+
+      function requireValues(ids) {
+        const fields = ids.map((id) => document.getElementById(id));
+        const missing = fields.find((field) => !field.value.trim());
+        if (missing) {
+          missing.focus();
+          alert("Please complete this field to continue the test.");
+          return false;
+        }
+        return true;
+      }
+
+      document.querySelectorAll("[data-next]").forEach((button) => {
+        button.addEventListener("click", () => showScreen(currentScreen + 1));
+      });
+
+      document.getElementById("saveSetup").addEventListener("click", () => {
+        if (!requireValues(["productionName", "productionEmail", "projectTitle", "releaseText"])) return;
+        const production = document.getElementById("productionName").value;
+        const project = document.getElementById("projectTitle").value;
+        const release = document.getElementById("releaseText").value;
+        document.getElementById("signerSummary").textContent =
+          `Production: ${production}\nProject: ${project}\n\nRelease:\n${release}`;
+        showScreen(3);
+      });
+
+      document.getElementById("acceptRelease").addEventListener("click", () => {
+        if (!requireValues(["signerName", "signerEmail", "signedDate"])) return;
+        if (!document.getElementById("agreement").checked) {
+          alert("Please confirm whether you agree before continuing.");
+          return;
+        }
+        showScreen(5);
+      });
+
+      document.getElementById("fakePhoto").addEventListener("click", () => {
+        placeholderPhotoTaken = true;
+        document.getElementById("photoStatus").textContent = "Placeholder photo marked as taken (no image captured).";
+      });
+
+      document.getElementById("finishInputs").addEventListener("click", () => {
+        if (!placeholderPhotoTaken) {
+          alert("Take the placeholder photo to continue.");
+          return;
+        }
+        if (!requireValues(["fakeSignature"])) return;
+        showScreen(6);
+        window.setTimeout(() => showScreen(7), 1200);
+      });
+
+      document.getElementById("restart").addEventListener("click", () => window.location.reload());
+    </script>
+  </body>
+</html>
