@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 import syntheticPhotoBuffer from "../../src/spike/fixtures/synthetic-photo.jpg";
 import {
   validateJpegPhoto,
-  validatePngSignature,
 } from "../../src/document/image-contract";
-import { makeSyntheticSignature } from "../../src/document/synthetic-images";
 
 describe("image contract", () => {
   it("accepts the representative JPEG photo fixture", () => {
@@ -42,22 +40,6 @@ describe("image contract", () => {
 
     expect(() => validateJpegPhoto(jpegWithLateApplicationMetadata)).toThrow(
       "prohibited EXIF metadata",
-    );
-  });
-
-  it("accepts the representative PNG signature fixture", () => {
-    expect(validatePngSignature(makeSyntheticSignature())).toEqual({
-      width: 300,
-      height: 80,
-    });
-  });
-
-  it("rejects a signature whose declared dimensions are too large", () => {
-    const oversizedSignature = makeSyntheticSignature();
-    oversizedSignature.set([0, 0, 3, 133], 16); // 901 pixels wide
-
-    expect(() => validatePngSignature(oversizedSignature)).toThrow(
-      "signature exceeds 900 by 300 pixels",
     );
   });
 });

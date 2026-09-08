@@ -1,8 +1,6 @@
 import { createSpikeDocument } from "../document/create-spike-document";
 import { sha256Hex } from "../document/hash";
-import {
-  makeSyntheticSignature,
-} from "../document/synthetic-images";
+import { makeSyntheticSignature } from "../spike/synthetic-signature";
 import syntheticPhotoBytes from "../spike/fixtures/synthetic-photo.jpg";
 
 // These replace browser-supplied image bytes for this synthetic spike. Keeping

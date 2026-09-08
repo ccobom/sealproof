@@ -1,21 +1,23 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { validateJpegPhoto, validatePngSignature } from "./image-contract";
+import { LineCapStyle, PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { validateJpegPhoto } from "./image-contract";
+import {
+  signatureToSvgPath,
+  type Signature,
+} from "./signature-contract";
 
-export interface SpikeImages {
+export interface SpikeInputs {
   photo: Uint8Array;
-  signature: Uint8Array;
+  signature: Signature;
 }
 
-export async function createSpikeDocument(images: SpikeImages): Promise<Uint8Array> {
+export async function createSpikeDocument(images: SpikeInputs): Promise<Uint8Array> {
   validateJpegPhoto(images.photo);
-  validatePngSignature(images.signature);
 
   const document = await PDFDocument.create();
   const page = document.addPage([612, 792]);
   const regular = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
   const photo = await document.embedJpg(images.photo);
-  const signature = await document.embedPng(images.signature);
 
   page.drawText("SEALPROOF RELEASE — TECHNICAL SPIKE", {
     x: 54,
@@ -44,8 +46,14 @@ export async function createSpikeDocument(images: SpikeImages): Promise<Uint8Arr
   });
   page.drawText("Synthetic photo", { x: 54, y: 608, size: 10, font: bold });
   page.drawImage(photo, { x: 54, y: 436, width: 224, height: 168 });
-  page.drawText("Synthetic signature", { x: 54, y: 400, size: 10, font: bold });
-  page.drawImage(signature, { x: 54, y: 326, width: 300, height: 80 });
+  page.drawText("Synthetic vector signature", { x: 54, y: 400, size: 10, font: bold });
+  page.drawSvgPath(signatureToSvgPath(images.signature, 300, 80), {
+    x: 54,
+    y: 406,
+    borderColor: rgb(0.1, 0.13, 0.18),
+    borderWidth: 1.5,
+    borderLineCap: LineCapStyle.Round,
+  });
 
   return document.save({ useObjectStreams: false });
 }

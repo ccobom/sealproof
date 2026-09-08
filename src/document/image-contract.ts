@@ -4,12 +4,6 @@ export const IMAGE_CONTRACT = {
     maximumBytes: 2_000_000,
     maximumLongestEdge: 1_280,
   },
-  signature: {
-    format: "png",
-    maximumBytes: 250_000,
-    maximumWidth: 900,
-    maximumHeight: 300,
-  },
 } as const;
 
 export interface ImageDimensions {
@@ -58,23 +52,4 @@ export function validateJpegPhoto(bytes: Uint8Array): ImageDimensions {
   }
 
   return dimensions ?? fail("JPEG dimensions were not found");
-}
-
-export function validatePngSignature(bytes: Uint8Array): ImageDimensions {
-  const signature = [137, 80, 78, 71, 13, 10, 26, 10];
-  if (bytes.length > IMAGE_CONTRACT.signature.maximumBytes) fail("signature exceeds 250 KB");
-  if (signature.some((byte, index) => bytes[index] !== byte)) fail("signature is not a PNG");
-  if (bytes.length < 24 || new TextDecoder().decode(bytes.slice(12, 16)) !== "IHDR") {
-    fail("signature lacks a PNG header");
-  }
-
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const width = view.getUint32(16);
-  const height = view.getUint32(20);
-  if (width < 1 || height < 1) fail("invalid PNG dimensions");
-  if (width > IMAGE_CONTRACT.signature.maximumWidth || height > IMAGE_CONTRACT.signature.maximumHeight) {
-    fail("signature exceeds 900 by 300 pixels");
-  }
-
-  return { width, height };
 }

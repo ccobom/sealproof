@@ -18,12 +18,14 @@ The photo must not carry EXIF or location metadata into the finalized PDF. The c
 
 ## Signature
 
-- Encoding: PNG
-- Maximum dimensions: 900 by 300 pixels
-- Hard size limit: 250 KB
-- Worker responsibility: verify PNG bytes, dimensions, and size before embedding
+- Encoding: normalized vector strokes rather than a raster image
+- Maximum strokes: 20
+- Maximum points per stroke: 250
+- Maximum total points: 2,000
+- Coordinates: finite numbers from zero through one on both axes
+- Worker responsibility: validate all bounds and convert the strokes to a PDF path
 
-The production implementation must separately decide whether to accept a raster signature or preserve validated signature strokes as vector data. This spike validates only the raster PNG path.
+The browser may render the strokes onto a canvas for signer feedback, but the canvas bitmap is not the source sent to the Worker. Normalized coordinates keep capture independent of screen resolution. The Worker renders the validated strokes directly into the PDF and must not retain them after the approved temporary lifecycle.
 
 ## Trust boundary
 

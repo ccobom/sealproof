@@ -65,6 +65,25 @@ This is approximately 14.6% lower than the PNG-photo baseline mean. The resultin
 
 The mean is below 10 ms, but the variance and lack of production-equivalent accounting leave insufficient margin to approve the Workers Free CPU gate.
 
+### Vector signature optimization pass
+
+The raster PNG signature was replaced with normalized vector strokes. The Worker validates finite coordinates, coordinate bounds, stroke count, per-stroke point count, and total point count before converting the signature to a stroked PDF path.
+
+Five warmed batches of 100 requests produced:
+
+| Batch | CPU time per request |
+| --- | ---: |
+| 1 | 10.000 ms |
+| 2 | 7.969 ms |
+| 3 | 7.969 ms |
+| 4 | 9.531 ms |
+| 5 | 7.656 ms |
+| **Mean** | **8.625 ms** |
+
+All five local batch averages were at or below 10 ms. The resulting PDF was 40,858 bytes. The dry-build upload was 877.49 KiB uncompressed and 236.97 KiB gzip, with no service bindings.
+
+This is additional evidence that browser-prepared JPEG photos and validated vector signatures are the appropriate input strategy. The remaining margin is still too narrow, and the measurement method too different from Cloudflare production accounting, to close the remote CPU validation gate.
+
 Commands:
 
 ```text
@@ -87,7 +106,7 @@ npx wrangler deploy --dry-run --outdir .wrangler/dry-run
 
 The bundle is well below Cloudflare's 64 MiB Worker-size limit and the test document is well below the 128 MB runtime memory ceiling. The Workers Free plan currently permits only 10 ms of CPU time per HTTP request.
 
-Local wall-clock and process-level timing are not authoritative Cloudflare CPU measurements. After JPEG optimization, the local mean was 9.313 ms per request, with one batch above the Workers Free 10 ms limit. Before accepting the architecture decision, either create additional safety margin or run the synthetic endpoint in a non-production Cloudflare preview or deployment and inspect its CPU usage. Representative production-size inputs must then be confirmed against the selected plan's limit. Remote validation requires a separate approval because it creates Cloudflare state.
+Local wall-clock and process-level timing are not authoritative Cloudflare CPU measurements. After JPEG and vector-signature optimization, the local mean was 8.625 ms per request and one batch averaged exactly 10 ms. Before accepting the architecture decision, run the synthetic endpoint in a non-production Cloudflare preview or deployment and inspect its CPU usage. Representative production-size inputs must then be confirmed against the selected plan's limit. Remote validation requires a separate approval because it creates Cloudflare state.
 
 ## Conclusion
 
