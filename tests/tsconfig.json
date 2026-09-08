@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": [
+    "./**/*.ts",
+    "../worker-configuration.d.ts",
+    "../src/**/*.ts"
+  ]
+}

@@ -1,6 +1,13 @@
 # Production Source
 
-This directory is intentionally empty until the product contract and data lifecycle are reviewed.
+This directory contains only code admitted through an approved validation gate.
+
+The first code is an isolated PDF-and-hash spike:
+
+- `document/` constructs synthetic image fixtures, builds a sample PDF, and hashes its exact bytes;
+- `worker/` exposes that spike at `GET /spike/document` in the Cloudflare Workers runtime.
+
+The spike contains no real personal information, persistence, email, or production workflow behavior.
 
 The provisional responsibility boundaries are:
 
@@ -10,4 +17,4 @@ The provisional responsibility boundaries are:
 - `audit/` — minimal approved audit evidence;
 - `cleanup/` — retention and deletion enforcement.
 
-These are boundaries for discussion, not a chosen framework or final architecture. Add implementation directories only as their first approved vertical slice is built.
+These remain responsibility boundaries rather than permission to build every subsystem. Add implementation directories only as their first approved vertical slice is built.

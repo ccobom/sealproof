@@ -1,0 +1,19 @@
+{
+  "name": "sealproof",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "types": "wrangler types",
+    "check": "npm run types && tsc --noEmit && tsc --noEmit --project tests/tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.1.6",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.130.0"
+  }
+}

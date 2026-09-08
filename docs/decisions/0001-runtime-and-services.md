@@ -115,6 +115,8 @@ Generating and sending a PDF entirely in one request would minimize custody. The
 
 ## Validation gate
 
+Local validation evidence is recorded in `docs/spikes/0001-worker-pdf-hash.md`. PDF construction, image embedding, exact-byte SHA-256 verification, Worker-runtime execution, and dry-build size have passed. Production CPU usage against the selected Cloudflare plan remains unverified, so this decision remains **Proposed**.
+
 Before this decision can become **Accepted**, a minimal technical spike must demonstrate that a local Cloudflare TypeScript Worker can:
 
 1. generate a readable PDF from hardcoded release information;
