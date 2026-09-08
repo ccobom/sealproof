@@ -1,14 +1,14 @@
 import { createSpikeDocument } from "../document/create-spike-document";
 import { sha256Hex } from "../document/hash";
 import {
-  makeSyntheticPhoto,
   makeSyntheticSignature,
 } from "../document/synthetic-images";
+import syntheticPhotoBytes from "../spike/fixtures/synthetic-photo.jpg";
 
 // These replace browser-supplied image bytes for this synthetic spike. Keeping
 // fixture creation outside fetch prevents it from distorting request profiles.
 const SPIKE_IMAGES = {
-  photo: makeSyntheticPhoto(),
+  photo: new Uint8Array(syntheticPhotoBytes),
   signature: makeSyntheticSignature(),
 };
 

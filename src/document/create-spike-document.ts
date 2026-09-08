@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { validateJpegPhoto, validatePngSignature } from "./image-contract";
 
 export interface SpikeImages {
   photo: Uint8Array;
@@ -6,11 +7,14 @@ export interface SpikeImages {
 }
 
 export async function createSpikeDocument(images: SpikeImages): Promise<Uint8Array> {
+  validateJpegPhoto(images.photo);
+  validatePngSignature(images.signature);
+
   const document = await PDFDocument.create();
   const page = document.addPage([612, 792]);
   const regular = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
-  const photo = await document.embedPng(images.photo);
+  const photo = await document.embedJpg(images.photo);
   const signature = await document.embedPng(images.signature);
 
   page.drawText("SEALPROOF RELEASE — TECHNICAL SPIKE", {

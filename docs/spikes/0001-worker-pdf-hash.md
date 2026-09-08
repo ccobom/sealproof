@@ -21,7 +21,7 @@ On September 8, 2026:
 - both production and test TypeScript checks passed;
 - Cloudflare's Vitest plugin ran the tests in its local Workers runtime;
 - 2 of 2 tests passed;
-- `pdf-lib` created a PDF containing generated photo and signature PNGs;
+- `pdf-lib` created a PDF containing a generated JPEG photo and PNG signature;
 - `pdf-lib` loaded the returned bytes as a readable one-page PDF;
 - an independent SHA-256 calculation over the returned bytes matched the Worker's header;
 - a Wrangler dry build passed without deploying;
@@ -46,6 +46,25 @@ An equal-length idle measurement recorded no additional `workerd` CPU time. A De
 
 The process-level benchmark is useful screening evidence, not Cloudflare production billing data. It includes local runtime behavior and operating-system accounting, and its mean sits too close to the Workers Free 10 ms limit to establish compliance.
 
+### JPEG optimization pass
+
+The DevTools bottom-up view identified PNG decoding and deflate compression as the meaningful visible JavaScript work. The displayed 5.29-second Web Crypto digest duration remained incompatible with the request's 35 ms end-to-end duration and was rejected as a measurement artifact.
+
+The spike then changed the representative photo from a generated PNG to a pre-generated 1280 by 960 JPEG while retaining a 300 by 80 PNG signature. Synthetic fixture construction occurs outside the request handler. Five warmed batches of 100 requests produced:
+
+| Batch | CPU time per request |
+| --- | ---: |
+| 1 | 7.969 ms |
+| 2 | 7.812 ms |
+| 3 | 12.188 ms |
+| 4 | 9.219 ms |
+| 5 | 9.375 ms |
+| **Mean** | **9.313 ms** |
+
+This is approximately 14.6% lower than the PNG-photo baseline mean. The resulting PDF was 40,952 bytes. The revised dry-build upload was 879.13 KiB uncompressed and 237.51 KiB gzip, still far below the Worker-size limit.
+
+The mean is below 10 ms, but the variance and lack of production-equivalent accounting leave insufficient margin to approve the Workers Free CPU gate.
+
 Commands:
 
 ```text
@@ -68,7 +87,7 @@ npx wrangler deploy --dry-run --outdir .wrangler/dry-run
 
 The bundle is well below Cloudflare's 64 MiB Worker-size limit and the test document is well below the 128 MB runtime memory ceiling. The Workers Free plan currently permits only 10 ms of CPU time per HTTP request.
 
-Local wall-clock and process-level timing are not authoritative Cloudflare CPU measurements. The preliminary local mean was 10.906 ms per request, with results on both sides of the Workers Free 10 ms limit. Before accepting the architecture decision, either optimize and repeat the local measurement or run the synthetic endpoint in a non-production Cloudflare preview or deployment and inspect its CPU usage. Representative production-size inputs must then be confirmed against the selected plan's limit. Remote validation requires a separate approval because it creates Cloudflare state.
+Local wall-clock and process-level timing are not authoritative Cloudflare CPU measurements. After JPEG optimization, the local mean was 9.313 ms per request, with one batch above the Workers Free 10 ms limit. Before accepting the architecture decision, either create additional safety margin or run the synthetic endpoint in a non-production Cloudflare preview or deployment and inspect its CPU usage. Representative production-size inputs must then be confirmed against the selected plan's limit. Remote validation requires a separate approval because it creates Cloudflare state.
 
 ## Conclusion
 
