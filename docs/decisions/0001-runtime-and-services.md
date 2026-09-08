@@ -3,15 +3,16 @@
 - Status: Proposed
 - Date: September 8, 2026
 - Decision owner: Project owner
-- Validation gate: PDF generation and hashing spike
+- Validation gate: TypeScript Worker PDF generation and hashing spike
 
 ## Context
 
 SEALPROOF needs a small browser application and a trusted server boundary. The product collects sensitive personal information long enough to create and deliver an A/V release, but it is explicitly not a permanent document-management system.
 
-The project owner prefers:
+The project owner initially preferred a Python and JavaScript foundation. After reviewing the browser/server boundary and Cloudflare runtime options, the project owner chose a single TypeScript application stack while preserving that boundary. The project priorities are:
 
-- a Python and JavaScript foundation;
+- explicit types and runtime validation across browser/server communication;
+- one primary language and dependency ecosystem;
 - transparent, easily audited code;
 - minimal operating costs outside Cloudflare;
 - no mandatory user accounts;
@@ -27,13 +28,21 @@ Use React with TypeScript, built by Vite and served as Cloudflare Worker static 
 
 React will manage only browser interaction: the multi-step workflow, role handoff, form state, photo capture, signature capture, progress, delivery-status display, and local download.
 
-TypeScript will define explicit client-side data and state boundaries. Runtime input remains untrusted and must also be validated by the backend.
+TypeScript will define explicit client-side data and state boundaries. Shared Zod schemas will provide TypeScript types and runtime validation for browser/server messages. Runtime input remains untrusted and must be validated again inside the Worker.
 
 ### Backend
 
-Use Python with FastAPI in a Cloudflare Python Worker.
+Use TypeScript in a Cloudflare Worker.
 
-The backend will validate requests, authorize release capabilities, finalize PDFs, calculate and verify SHA-256 hashes, coordinate delivery and retry, receive authenticated webhooks, update audit state, and enforce cleanup.
+The Worker will validate requests, authorize release capabilities, finalize PDFs, calculate and verify SHA-256 hashes, coordinate delivery and retry, receive authenticated webhooks, update audit state, and enforce cleanup.
+
+Browser and Worker code share a language but not a trust level. Resend credentials, storage access, database bindings, and encryption keys exist only in the Worker environment.
+
+### PDF and hashing
+
+Use `pdf-lib` in the Worker to construct the final PDF from validated data and image bytes. Use Cloudflare's native Web Crypto API to calculate SHA-256 over the final PDF bytes.
+
+The exact finalized bytes are the source of truth. The hash, both email attachments, any temporary R2 object, and any local download must all derive from those same bytes rather than independently regenerated documents.
 
 ### Durable audit data
 
@@ -66,10 +75,12 @@ Resend's processing and retention are outside SealProof-controlled storage and r
 
 ## Why this direction
 
-- It preserves the requested Python and JavaScript foundation.
+- It uses one primary language and dependency ecosystem while retaining a strict browser/server security boundary.
 - It keeps hosting, compute, database, and optional object storage within Cloudflare.
 - It avoids adopting Lovable's generated architecture merely because it already exists.
 - It creates a clear trust boundary: the frontend gathers and displays; the backend validates and performs; durable storage remembers only approved evidence.
+- TypeScript is a first-class Cloudflare Workers language and avoids relying on the beta Python Workers runtime.
+- `pdf-lib` is MIT licensed and demonstrates the needed general PDF capabilities, while remaining subject to our own Worker-runtime spike.
 - D1 appears sufficient for a deliberately small transaction and audit schema.
 - Resend is already available to the project and provides the required delivery webhooks.
 
@@ -79,9 +90,9 @@ Resend's processing and retention are outside SealProof-controlled storage and r
 
 This would reduce dependencies. React is provisionally preferred because the application has a multi-step workflow, camera and signature components, distinct role states, and asynchronous delivery updates. React must remain small and must not import a generic component system by default.
 
-### An all-TypeScript Cloudflare Worker
+### Python with FastAPI in a Cloudflare Worker
 
-This would use one language across browser and server and may fit the Workers runtime more naturally. It remains the fallback if Python PDF generation is unsupported, unreliable, or too resource-intensive. Failure of the PDF spike does not automatically require replacing the React frontend or other Cloudflare services.
+This preserves an explicit Python/JavaScript split and provides Pydantic validation and OpenAPI documentation. It was not selected because Cloudflare Python Workers are still beta, Python PDF-library compatibility and licensing introduced additional uncertainty, and two dependency ecosystems would make this small application harder to audit. Python remains available for isolated development tooling if a later decision justifies it, but it is not part of the deployed application proposal.
 
 ### Supabase-hosted PostgreSQL
 
@@ -94,8 +105,9 @@ Generating and sending a PDF entirely in one request would minimize custody. The
 ## Consequences and risks
 
 - The application becomes coupled to Cloudflare Workers bindings and D1.
-- Python and TypeScript create two dependency ecosystems and two runtime type definitions that must remain aligned.
-- Python package compatibility and CPU limits in Cloudflare Workers may constrain PDF generation.
+- Shared TypeScript types do not validate runtime input by themselves; Worker-side Zod validation and database constraints remain mandatory.
+- `pdf-lib` performance and output quality in the Workers runtime remain unproven.
+- Browser and Worker code could be confused during review because they share a language; directory and import boundaries must make the trust boundary obvious.
 - D1 may require a different concurrency design than PostgreSQL.
 - Temporary R2 storage expands the sensitive-data surface and requires encryption, access control, expiry, and cleanup evidence.
 - Resend may retain email messages and attachments independently of SealProof's two-hour deletion rule.
@@ -103,13 +115,13 @@ Generating and sending a PDF entirely in one request would minimize custody. The
 
 ## Validation gate
 
-Before this decision can become **Accepted**, a minimal technical spike must demonstrate that a local Cloudflare Python Worker can:
+Before this decision can become **Accepted**, a minimal technical spike must demonstrate that a local Cloudflare TypeScript Worker can:
 
 1. generate a readable PDF from hardcoded release information;
 2. embed a representative photo and signature;
 3. calculate the PDF's SHA-256 hash;
 4. independently recalculate and match that hash from the returned bytes;
-5. run using packages supported by Cloudflare Python Workers;
+5. run `pdf-lib` in the actual local Workers runtime rather than only in Node;
 6. fit the Cloudflare plan's applicable CPU, memory, request, and output limits.
 
 The spike will not contain real personal information, send email, write to D1, or retain a document.
@@ -119,7 +131,7 @@ The spike will not contain real personal information, send email, write to D1, o
 After the spike, update this record to one of:
 
 - **Accepted** — the proposed stack passed the validation gate;
-- **Accepted with amendment** — a documented component, such as PDF generation, moved to TypeScript;
+- **Accepted with amendment** — a documented component, such as the PDF library or execution strategy, changed while retaining the overall architecture;
 - **Rejected** — the proposed direction is not viable, with evidence and a replacement decision record.
 
 No production stack is approved merely by creating this document.
