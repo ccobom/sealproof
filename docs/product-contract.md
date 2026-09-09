@@ -69,6 +69,14 @@ It may animate while waiting, but it must not claim that an incomplete stage has
 - A delivery with contradictory terminal events is not retried automatically because the original message may have arrived. The interface reports that delivery could not be confirmed and offers download-and-delete during the unchanged two-hour window.
 - Deleting SealProof's copy does not control any copy already processed or retained by the email provider.
 
+## Final document limits
+
+- The finalized PDF may contain no more than three pages.
+- The finalized PDF may contain no more than 3,000,000 bytes.
+- The browser should prevent release content from exceeding these limits before signature collection.
+- The Worker independently parses the uploaded PDF and enforces both limits before hashing, storage, or sealing.
+- A document outside either limit is not sealed and produces a clear correction path rather than silently truncating agreement text, images, or signatures.
+
 ## Explicitly outside the first release
 
 To be decided. Candidate exclusions must be approved before implementation.
@@ -84,4 +92,4 @@ To be decided. Candidate exclusions must be approved before implementation.
 
 - Approved by: Project owner
 - Date: September 8, 2026
-- Notes: State meanings, delivery flow, retry choices, explicit deletion, and an unconditional two-hour maximum SealProof retention window are approved. The document remains a draft until its open decisions are resolved.
+- Notes: State meanings, delivery flow, retry choices, explicit deletion, an unconditional two-hour maximum SealProof retention window, and final-document limits of three pages and 3,000,000 bytes are approved. The document remains a draft until its open decisions are resolved.

@@ -1,5 +1,6 @@
 import type { TemporaryEmailAddresses } from "../crypto/temporary-pii";
 import { bytesToHex, sha256Bytes } from "../document/hash";
+import { validateFinalPdf, type PdfContractFailure } from "../document/pdf-contract";
 import {
   createReleaseState,
   markReleaseSealed,
@@ -8,7 +9,6 @@ import {
 export interface FinalizeReleaseInput {
   pdfBytes: Uint8Array;
   browserDocumentHash: string;
-  maximumPdfBytes: number;
   workflowVersion: string;
   emailAddresses: TemporaryEmailAddresses;
   keyVersion: string;
@@ -33,7 +33,7 @@ export type FinalizeReleaseResult =
       statusCapability: string;
       downloadCapability: string;
     }
-  | { outcome: "rejected"; reason: "INVALID_PDF" | "HASH_MISMATCH" | "PDF_TOO_LARGE" }
+  | { outcome: "rejected"; reason: PdfContractFailure | "HASH_MISMATCH" }
   | { outcome: "storage_failed_cleaned"; transactionId: string };
 
 export type ResumeFinalizationResult =
@@ -74,11 +74,6 @@ async function createCredentials(): Promise<FinalizationCredentials> {
   };
 }
 
-function validPdfHeader(bytes: Uint8Array): boolean {
-  const header = new TextDecoder().decode(bytes.subarray(0, 5));
-  return header === "%PDF-";
-}
-
 function checksumMatches(object: R2Object, expectedHash: string): boolean {
   const checksum = object.checksums.sha256;
   return checksum !== undefined
@@ -117,17 +112,9 @@ export async function finalizeRelease(
   input: FinalizeReleaseInput,
   now: () => number = Date.now,
 ): Promise<FinalizeReleaseResult> {
-  if (!Number.isSafeInteger(input.maximumPdfBytes) || input.maximumPdfBytes < 1) {
-    throw new Error("maximumPdfBytes must be a positive safe integer");
-  }
-  if (input.pdfBytes.byteLength > input.maximumPdfBytes) {
-    return { outcome: "rejected", reason: "PDF_TOO_LARGE" };
-  }
-  if (!validPdfHeader(input.pdfBytes)) {
-    return { outcome: "rejected", reason: "INVALID_PDF" };
-  }
-
   const pdfBytes = new Uint8Array(input.pdfBytes);
+  const contract = await validateFinalPdf(pdfBytes);
+  if (!contract.valid) return { outcome: "rejected", reason: contract.reason };
   const digest = await sha256Bytes(pdfBytes);
   const documentHash = bytesToHex(digest);
   if (input.browserDocumentHash !== documentHash) {

@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
-import { describe, expect, it } from "vitest";
+import { PDFDocument } from "pdf-lib";
+import { beforeAll, describe, expect, it } from "vitest";
 import { temporaryAccessExists } from "../../src/cleanup/release-cleanup";
 import { bytesToHex, sha256Bytes, sha256Hex } from "../../src/document/hash";
 import {
@@ -10,7 +11,13 @@ import {
 import { createReleaseState } from "../../src/release/release-state";
 
 const FINALIZED_AT = 1_800_000_000_000;
-const PDF_BYTES = new TextEncoder().encode("%PDF-1.7\nsynthetic final document\n%%EOF");
+let PDF_BYTES: Uint8Array;
+
+beforeAll(async () => {
+  const document = await PDFDocument.create();
+  document.addPage();
+  PDF_BYTES = await document.save();
+});
 
 function encryptionKey(): Uint8Array {
   return Uint8Array.from({ length: 32 }, (_, index) => index);
@@ -22,7 +29,6 @@ async function finalizationInput(
   return {
     pdfBytes: PDF_BYTES,
     browserDocumentHash: await sha256Hex(PDF_BYTES),
-    maximumPdfBytes: 1_000_000,
     workflowVersion: "test-v1",
     emailAddresses: {
       productionEmail: "producer@example.invalid",
@@ -80,7 +86,7 @@ describe("release finalization coordinator", () => {
       browserDocumentHash: await sha256Hex(new TextEncoder().encode("not a PDF")),
     }), () => FINALIZED_AT)).resolves.toEqual({ outcome: "rejected", reason: "INVALID_PDF" });
     await expect(finalizeRelease(env.TEST_DB, env.TEST_BUCKET, await finalizationInput({
-      maximumPdfBytes: PDF_BYTES.byteLength - 1,
+      pdfBytes: new Uint8Array(3_000_001),
     }), () => FINALIZED_AT)).resolves.toEqual({ outcome: "rejected", reason: "PDF_TOO_LARGE" });
     await expect(finalizeRelease(env.TEST_DB, env.TEST_BUCKET, await finalizationInput({
       browserDocumentHash: "0".repeat(64),
