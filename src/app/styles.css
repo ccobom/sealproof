@@ -79,6 +79,9 @@ input:focus { outline: 3px solid rgba(35, 106, 74, .23); border-color: #236a4a; 
 .camera-error { color: #ffd2cd; }
 .camera-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .privacy-note { color: #657169; font-size: .86rem; line-height: 1.5; }
+.signature-capture { max-width: 680px; margin-bottom: 28px; }
+.signature-canvas { display: block; width: 100%; height: 260px; border: 2px solid #657169; border-radius: 12px; background: #fff; cursor: crosshair; touch-action: none; }
+.signature-canvas:focus-visible { outline: 3px solid rgba(35, 106, 74, .3); outline-offset: 3px; }
 
 @media (max-width: 640px) {
   .progress { grid-template-columns: repeat(2, 1fr); }

@@ -7,8 +7,10 @@ import {
 } from "./production-setup";
 import { signerDetailsSchema, type SignerDetails } from "./signer-details";
 import { PhotoCapture } from "./PhotoCapture";
+import { SignatureCapture } from "./SignatureCapture";
+import { validateSignature, type Signature } from "../document/signature-contract";
 
-type Screen = "setup" | "preview" | "handoff" | "signer" | "photo" | "photoComplete";
+type Screen = "setup" | "preview" | "handoff" | "signer" | "photo" | "signature" | "localComplete";
 
 const INITIAL_SETUP: ProductionSetup = {
   productionName: "",
@@ -31,6 +33,8 @@ export function App() {
   const [signerErrors, setSignerErrors] = useState<Record<string, string>>({});
   const [signerPhoto, setSignerPhoto] = useState<Uint8Array>();
   const [photoError, setPhotoError] = useState<string>();
+  const [signature, setSignature] = useState<Signature>();
+  const [signatureError, setSignatureError] = useState<string>();
   const [previewUrl, setPreviewUrl] = useState<string>();
   const [previewBytes, setPreviewBytes] = useState<Uint8Array>();
   const [busy, setBusy] = useState(false);
@@ -133,7 +137,18 @@ export function App() {
       return;
     }
     setPhotoError(undefined);
-    show("photoComplete");
+    show("signature");
+  }
+
+  function completeSignatureStep() {
+    try {
+      if (!signature) throw new Error("missing");
+      validateSignature(signature);
+      setSignatureError(undefined);
+      show("localComplete");
+    } catch {
+      setSignatureError("Draw a signature before continuing.");
+    }
   }
 
   function clearLocalTest() {
@@ -144,6 +159,8 @@ export function App() {
     setSetup(freshSetup);
     setSigner(initialSignerDetails(freshSetup.agreementDate));
     setSignerPhoto(undefined);
+    setSignature(undefined);
+    setSignatureError(undefined);
     setErrors({});
     setSignerErrors({});
     setFailure(undefined);
@@ -168,7 +185,7 @@ export function App() {
           <li aria-current={screen === "setup" ? "step" : undefined} className={progressStage >= 0 ? "complete" : ""}>Production details</li>
           <li aria-current={screen === "preview" ? "step" : undefined} className={progressStage >= 1 ? "complete" : ""}>Setup preview</li>
           <li aria-current={["handoff", "signer"].includes(screen) ? "step" : undefined} className={progressStage >= 2 ? "complete" : ""}>Signer review</li>
-          <li aria-current={["photo", "photoComplete"].includes(screen) ? "step" : undefined} className={progressStage >= 3 ? "complete" : ""}>Photo &amp; signature</li>
+          <li aria-current={["photo", "signature", "localComplete"].includes(screen) ? "step" : undefined} className={progressStage >= 3 ? "complete" : ""}>Photo &amp; signature</li>
         </ol>
 
         {screen === "setup" ? (
@@ -289,14 +306,23 @@ export function App() {
             {photoError && <p className="error-summary" role="alert">{photoError}</p>}
             <button className="primary-button" type="button" onClick={completePhotoStep}>{signerPhoto ? "Approve photo and continue" : setup.photoRequired ? "Continue" : "Continue without a photo"}</button>
           </section>
+        ) : screen === "signature" ? (
+          <section className="panel" aria-labelledby="signature-heading">
+            <p className="eyebrow">Signer signature</p>
+            <h1 id="signature-heading">Draw your signature</h1>
+            <p className="lede">Use a finger, stylus, or mouse. The drawing is retained as bounded vector points in this browser page; it is not uploaded or sealed.</p>
+            <SignatureCapture onSignatureChange={(value) => { setSignature(value); setSignatureError(undefined); }} />
+            {signatureError && <p className="error-summary" role="alert">{signatureError}</p>}
+            <button className="primary-button" type="button" onClick={completeSignatureStep}>Approve signature and continue</button>
+          </section>
         ) : (
           <section className="panel" aria-labelledby="complete-heading">
-            <p className="eyebrow">Photo step complete</p>
-            <h1 id="complete-heading">Your test details{signerPhoto ? " and photo" : ""} are held locally.</h1>
-            <p className="lede">Nothing was uploaded, stored, emailed, signed, or sealed. Your information{signerPhoto ? " and processed photo" : ""} exists only in this open browser page.</p>
+            <p className="eyebrow">Local evidence complete</p>
+            <h1 id="complete-heading">Your test details, signature{signerPhoto ? ", and photo" : ""} are held locally.</h1>
+            <p className="lede">Nothing was uploaded, stored, emailed, or sealed. Your information, vector signature{signerPhoto ? ", and processed photo" : ""} exists only in this open browser page.</p>
             <div className="handoff-card">
-              <p><strong>Next build:</strong> a drawn vector signature.</p>
-              <p>The signer details, photo, and signature will later be added to a new final PDF for exact review before sealing.</p>
+              <p><strong>This is still a local test:</strong> completing these inputs did not create a contract.</p>
+              <p><strong>Next build:</strong> add the reviewed details, photo or waiver, and signature to a new final PDF for exact review before sealing.</p>
             </div>
             <button className="secondary-button" type="button" onClick={clearLocalTest}>End test and clear inputs</button>
           </section>

@@ -43,7 +43,7 @@ Camera permission, device switching, canvas encoding, visual framing, memory beh
 - Test permission approval, denial, retry, retake, clearing, and both waiver branches in a real browser.
 - Test at least one phone and one desktop/laptop camera, including narrow-screen layout and device rotation.
 - Inspect representative processed byte sizes and confirm canvas-produced JPEGs pass the independent validator.
-- Add vector signature capture separately.
+- Vector signature capture is implemented separately in `docs/spikes/0017-local-vector-signature.md`.
 - Add the selected photo or explicit waiver to the exact final PDF before any upload is connected.
 
 ## Conclusion
