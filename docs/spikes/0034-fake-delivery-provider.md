@@ -33,4 +33,4 @@ Local tests establish:
 
 ## Scope and next gate
 
-This coordinator is exercised directly in local tests and is not yet invoked by the browser-facing finalization route. The next gate is to inject it into the Worker lifecycle with an explicitly local fake mode, expose only bounded submission state, and prove that a browser finalization causes two fake submissions without enabling any live Resend network request.
+Completed by spike 0035. The coordinator is now injected only by the loopback-only Worker entry point; the default Worker retains no delivery provider.

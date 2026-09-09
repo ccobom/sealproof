@@ -4,6 +4,7 @@ import {
 } from "../admission/admission-route";
 import {
   handleTicketFinalizationRequest,
+  type SealedReleaseHandler,
   type TicketFinalizationEnvironment,
 } from "../http/ticket-finalization-route";
 import { handleReleaseStatusRequest } from "../http/release-status-route";
@@ -30,6 +31,7 @@ type NetworkFetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<
 export interface SealProofWorkerDependencies {
   fetcher?: NetworkFetcher;
   now?: () => number;
+  afterSealed?: SealedReleaseHandler;
 }
 
 export function createSealProofWorker(dependencies: SealProofWorkerDependencies = {}) {
@@ -43,7 +45,9 @@ export function createSealProofWorker(dependencies: SealProofWorkerDependencies 
         return handleAdmissionRequest(request, environment, now(), fetcher);
       }
       if (path === "/api/releases/finalize") {
-        return handleTicketFinalizationRequest(request, environment, now());
+        return handleTicketFinalizationRequest(
+          request, environment, now(), dependencies.afterSealed,
+        );
       }
       if (/^\/api\/releases\/[A-Za-z0-9_-]{16,128}\/status$/.test(path)) {
         return handleReleaseStatusRequest(request, environment, now());

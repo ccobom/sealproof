@@ -8,6 +8,7 @@ import {
   type FinalizationFetcher,
 } from "../../src/app/finalization-client";
 import { createSealProofWorker, type SealProofEnvironment } from "../../src/worker/app";
+import { runLocalFakeDelivery } from "../../src/worker/local-app";
 
 const NOW = 1_800_000_000_000;
 const ORIGIN = "https://sealproof.example";
@@ -40,7 +41,11 @@ describe("production-shaped local Worker", () => {
       action: "release-finalization",
     }));
     let currentTime = NOW;
-    const worker = createSealProofWorker({ fetcher: turnstileFetcher, now: () => currentTime++ });
+    const worker = createSealProofWorker({
+      fetcher: turnstileFetcher,
+      now: () => currentTime++,
+      afterSealed: runLocalFakeDelivery,
+    });
     const browserFetcher: FinalizationFetcher = async (input, init) => {
       const headers = new Headers(init?.headers);
       headers.set("origin", ORIGIN);
@@ -74,6 +79,19 @@ describe("production-shaped local Worker", () => {
     const object = await env.TEST_BUCKET.get(stored!.r2_object_key);
     const storedBytes = new Uint8Array(await object!.arrayBuffer());
     expect(new TextDecoder().decode(storedBytes.subarray(0, 5))).not.toBe("%PDF-");
+    const attempts = await env.TEST_DB.prepare(`
+      SELECT recipient_role, delivery_state, provider_message_id, provider_ticket_envelope
+      FROM delivery_attempts WHERE transaction_id = ? ORDER BY id
+    `).bind(result.transactionId).all<Record<string, unknown>>();
+    expect(attempts.results).toEqual([
+      expect.objectContaining({ recipient_role: "PRODUCTION", delivery_state: "ACCEPTED" }),
+      expect.objectContaining({ recipient_role: "SIGNER", delivery_state: "ACCEPTED" }),
+    ]);
+    for (const attempt of attempts.results) {
+      expect(attempt.provider_message_id).toMatch(/^fake_[0-9a-f]{32}$/);
+      expect(attempt.provider_ticket_envelope).toMatch(/^v1\.provider-v1\./);
+      expect(String(attempt.provider_ticket_envelope)).not.toContain(result.transactionId);
+    }
 
     const status = await browserFetcher(`/api/releases/${result.transactionId}/status`, {
       headers: { authorization: `Bearer ${result.statusCapability}` },

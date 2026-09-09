@@ -18,6 +18,17 @@ export interface TicketFinalizationEnvironment {
   TICKET_ENCRYPTION_KEY_BASE64: string;
 }
 
+export interface SealedReleaseNotification {
+  transactionId: string;
+  publicOrigin: string;
+  sealedAt: number;
+}
+
+export type SealedReleaseHandler = (
+  notification: SealedReleaseNotification,
+  environment: TicketFinalizationEnvironment,
+) => Promise<void>;
+
 function error(code: string, status: number): Response {
   return Response.json({ error: code }, { status, headers: NO_STORE_HEADERS });
 }
@@ -45,6 +56,7 @@ export async function handleTicketFinalizationRequest(
   request: Request,
   environment: TicketFinalizationEnvironment,
   now: number = Date.now(),
+  afterSealed?: SealedReleaseHandler,
 ): Promise<Response> {
   if (request.method !== "POST") {
     return new Response(null, { status: 405, headers: { ...NO_STORE_HEADERS, allow: "POST" } });
@@ -99,6 +111,18 @@ export async function handleTicketFinalizationRequest(
       return error(result.reason, result.reason === "PDF_TOO_LARGE" ? 413 : 400);
     }
     if (result.outcome === "storage_failed_cleaned") return error("SERVICE_UNAVAILABLE", 503);
+    if (result.outcome === "sealed" && afterSealed) {
+      try {
+        await afterSealed({
+          transactionId: result.transactionId,
+          publicOrigin: url.origin,
+          sealedAt: now,
+        }, environment);
+      } catch {
+        // The document is already sealed. Delivery remains pending and can be retried;
+        // never turn a post-seal provider problem into a false finalization failure.
+      }
+    }
     return Response.json({
       outcome: result.outcome,
       transactionId: result.transactionId,
