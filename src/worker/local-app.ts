@@ -3,6 +3,10 @@ import { FakeDeliveryProvider } from "../delivery/fake-delivery-provider";
 import { submitPendingDeliveries } from "../delivery/submit-pending-deliveries";
 import { handleProviderAttachmentRequest } from "../http/provider-attachment-route";
 import type { SealedReleaseHandler } from "../http/ticket-finalization-route";
+import {
+  handleLocalFakeWebhookRequest,
+  type LocalFakeWebhookEnvironment,
+} from "../http/local-fake-webhook-route";
 
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
@@ -86,12 +90,20 @@ export function isLocalRequest(request: Request): boolean {
 }
 
 export default {
-  async fetch(request: Request, environment: SealProofEnvironment): Promise<Response> {
+  async fetch(
+    request: Request,
+    environment: SealProofEnvironment & LocalFakeWebhookEnvironment,
+  ): Promise<Response> {
     if (!isLocalRequest(request)) {
       return Response.json({ error: "LOCAL_BUILD_ONLY" }, {
         status: 503,
         headers: { "cache-control": "private, no-store, max-age=0" },
       });
+    }
+    if (/^\/api\/local\/releases\/[A-Za-z0-9_-]{16,128}\/fake-webhook$/.test(
+      new URL(request.url).pathname,
+    )) {
+      return handleLocalFakeWebhookRequest(request, environment);
     }
     return localWorker.fetch(request, environment);
   },
@@ -102,4 +114,4 @@ export default {
   ): void {
     localWorker.scheduled(controller, environment, context);
   },
-} satisfies ExportedHandler<SealProofEnvironment>;
+} satisfies ExportedHandler<SealProofEnvironment & LocalFakeWebhookEnvironment>;

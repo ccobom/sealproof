@@ -39,6 +39,15 @@ const closeoutResponseSchema = z.strictObject({
   transactionId: z.uuid(),
 });
 
+const fakeWebhookResponseSchema = z.strictObject({
+  outcome: z.literal("applied"),
+  recipientRole: z.enum(["PRODUCTION", "SIGNER"]),
+  deliveryState: z.enum(["DELIVERED", "FAILED"]),
+  releaseState: z.enum(["SEALED_AWAITING_DELIVERY", "DELIVERED", "DELIVERY_FAILED"]),
+});
+
+export type LocalFakeDeliveryEvent = "email.delivered" | "email.bounced";
+
 export interface AdmissionInput {
   productionEmail: string;
   signerEmail: string;
@@ -56,12 +65,43 @@ type PrivateBrowserRequestInit = RequestInit & {
 
 export class FinalizationRequestError extends Error {
   constructor(
-    readonly stage: "admission" | "upload" | "status" | "closeout",
+    readonly stage: "admission" | "upload" | "status" | "closeout" | "fakeDelivery",
     readonly status: number | undefined,
   ) {
     super(`SealProof ${stage} request failed`);
     this.name = "FinalizationRequestError";
   }
+}
+
+export async function sendLocalFakeDeliveryEvent(
+  release: Pick<FinalizedRelease, "transactionId" | "statusCapability">,
+  recipientRole: "PRODUCTION" | "SIGNER",
+  eventType: LocalFakeDeliveryEvent,
+  fetcher: FinalizationFetcher = fetch,
+): Promise<void> {
+  const request: PrivateBrowserRequestInit = {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${release.statusCapability}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ recipientRole, eventType }),
+    cache: "no-store",
+    credentials: "omit",
+    redirect: "error",
+  };
+  const response = await fetcher(
+    `/api/local/releases/${release.transactionId}/fake-webhook`, request,
+  );
+  if (!response.ok) throw new FinalizationRequestError("fakeDelivery", response.status);
+  const parsed = fakeWebhookResponseSchema.safeParse(
+    await parsedJson(response, "fakeDelivery"),
+  );
+  const expectedState = eventType === "email.delivered" ? "DELIVERED" : "FAILED";
+  if (
+    !parsed.success || parsed.data.recipientRole !== recipientRole
+    || parsed.data.deliveryState !== expectedState
+  ) throw new FinalizationRequestError("fakeDelivery", response.status);
 }
 
 async function parsedJson(

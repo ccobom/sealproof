@@ -171,15 +171,27 @@ export async function applyVerifiedDeliveryEvent(
 
   const recomputeRelease = db.prepare(`
     UPDATE audit_releases
-    SET release_state = CASE
-      WHEN production_delivery_outcome = 'UNRESOLVED'
-        OR signer_delivery_outcome = 'UNRESOLVED' THEN 'DELIVERY_UNRESOLVED'
-      WHEN production_delivery_outcome = 'DELIVERED'
-        AND signer_delivery_outcome = 'DELIVERED' THEN 'DELIVERED'
-      WHEN production_delivery_outcome = 'FAILED'
-        OR signer_delivery_outcome = 'FAILED' THEN 'DELIVERY_FAILED'
-      ELSE 'SEALED_AWAITING_DELIVERY'
-    END
+    SET
+      release_state = CASE
+        WHEN production_delivery_outcome = 'UNRESOLVED'
+          OR signer_delivery_outcome = 'UNRESOLVED' THEN 'DELIVERY_UNRESOLVED'
+        WHEN production_delivery_outcome = 'DELIVERED'
+          AND signer_delivery_outcome = 'DELIVERED' THEN 'DELIVERED'
+        WHEN production_delivery_outcome = 'FAILED'
+          OR signer_delivery_outcome = 'FAILED' THEN 'DELIVERY_FAILED'
+        ELSE 'SEALED_AWAITING_DELIVERY'
+      END,
+      failure_category = CASE
+        WHEN production_delivery_outcome = 'UNRESOLVED'
+          OR signer_delivery_outcome = 'UNRESOLVED' THEN 'conflicting_provider_events'
+        WHEN production_delivery_outcome = 'FAILED'
+          OR signer_delivery_outcome = 'FAILED' THEN
+            CASE WHEN ? = 'email.bounced' THEN 'delivery_bounced'
+              ELSE COALESCE(failure_category, 'unknown_failure') END
+        WHEN production_delivery_outcome = 'DELIVERED'
+          AND signer_delivery_outcome = 'DELIVERED' THEN NULL
+        ELSE failure_category
+      END
     WHERE transaction_id = (
       SELECT transaction_id FROM delivery_attempts WHERE provider_message_id = ?
     )
@@ -187,7 +199,7 @@ export async function applyVerifiedDeliveryEvent(
         SELECT 1 FROM processed_webhooks WHERE svix_id = ? AND payload_hash = ?
       )
     RETURNING release_state
-  `).bind(input.providerMessageId, input.svixId, input.payloadHash);
+  `).bind(input.eventType, input.providerMessageId, input.svixId, input.payloadHash);
 
   const results = await db.batch<BatchRow>([
     receipt,

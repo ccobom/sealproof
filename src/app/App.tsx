@@ -10,6 +10,7 @@ import { PhotoCapture } from "./PhotoCapture";
 import { SignatureCapture } from "./SignatureCapture";
 import { validateSignature, type Signature } from "../document/signature-contract";
 import type { FinalizedRelease, ReleaseStatus } from "./finalization-client";
+import type { LocalFakeDeliveryEvent } from "./finalization-client";
 
 type Screen = "setup" | "preview" | "handoff" | "signer" | "photo" | "signature" | "finalReview" | "sealedLocal" | "localComplete";
 
@@ -242,6 +243,31 @@ export function App() {
     }
   }
 
+  async function simulateLocalDelivery(
+    productionEvent: LocalFakeDeliveryEvent,
+    signerEvent: LocalFakeDeliveryEvent,
+  ) {
+    if (!localRuntime || !finalizedRelease) return;
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      const { sendLocalFakeDeliveryEvent, requestReleaseStatus } = await import("./finalization-client");
+      await sendLocalFakeDeliveryEvent(finalizedRelease, "PRODUCTION", productionEvent);
+      await sendLocalFakeDeliveryEvent(finalizedRelease, "SIGNER", signerEvent);
+      setReleaseStatus(await requestReleaseStatus(finalizedRelease));
+    } catch {
+      try {
+        const { requestReleaseStatus } = await import("./finalization-client");
+        setReleaseStatus(await requestReleaseStatus(finalizedRelease));
+      } catch {
+        // Preserve the last known bounded state if even the follow-up status request fails.
+      }
+      setFailure("The complete fake webhook scenario did not finish. The status shown is the latest state SealProof could verify; no live service was contacted.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function clearLocalTest() {
     previewBytes?.fill(0);
     finalPdfBytes?.fill(0);
@@ -461,6 +487,17 @@ export function App() {
               <p><strong>Signer delivery:</strong> {releaseStatus?.signerDeliveryOutcome ?? "Unavailable"}</p>
               <p><strong>SHA-256:</strong> <code className="inline-hash">{releaseStatus?.documentHash}</code></p>
             </div>
+            {localRuntime && releaseStatus?.releaseState === "SEALED_AWAITING_DELIVERY" && (
+              <div className="local-simulation" aria-labelledby="local-simulation-heading">
+                <h2 id="local-simulation-heading">Simulate authenticated delivery webhooks</h2>
+                <p>Choose one synthetic outcome. These controls create locally signed, Resend-shaped events and send them through the real verification and state-transition code. No email or external request occurs.</p>
+                <div className="preview-actions">
+                  <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateLocalDelivery("email.delivered", "email.delivered")}>Both delivered</button>
+                  <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateLocalDelivery("email.delivered", "email.bounced")}>Production delivered; signer failed</button>
+                  <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateLocalDelivery("email.bounced", "email.delivered")}>Production failed; signer delivered</button>
+                </div>
+              </div>
+            )}
             <div className="preview-actions">
               {finalPdfUrl && finalPdfBytes && (
                 <a className="secondary-button" href={finalPdfUrl} download="sealproof-local-sealed-test.pdf">Download browser copy</a>

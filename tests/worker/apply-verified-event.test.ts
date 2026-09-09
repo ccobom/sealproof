@@ -157,6 +157,11 @@ describe("applyVerifiedDeliveryEvent", () => {
         deliveryState: "UNRESOLVED_CONFLICT",
         releaseState: "DELIVERY_UNRESOLVED",
       });
+      expect(await env.TEST_DB.prepare(`
+        SELECT failure_category FROM audit_releases WHERE transaction_id = ?
+      `).bind(transactionId).first()).toEqual({
+        failure_category: "conflicting_provider_events",
+      });
     }
   });
 

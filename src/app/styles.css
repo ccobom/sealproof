@@ -87,6 +87,9 @@ input:focus { outline: 3px solid rgba(35, 106, 74, .23); border-color: #236a4a; 
 .hash-card code, .inline-hash { overflow-wrap: anywhere; word-break: break-all; }
 .hash-card code { display: block; font-size: .86rem; }
 .hash-card small { display: block; margin-top: 10px; color: #657169; line-height: 1.45; }
+.local-simulation { max-width: 650px; margin: 30px auto; padding: 20px 24px; border: 1px dashed #657169; border-radius: 10px; background: #f8f7f2; }
+.local-simulation h2 { margin: 0; font-size: 1.15rem; }
+.local-simulation p { color: #526158; line-height: 1.55; }
 
 @media (max-width: 640px) {
   .progress { grid-template-columns: repeat(2, 1fr); }

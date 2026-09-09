@@ -4,6 +4,7 @@ import {
   closeoutRelease,
   requestFinalizationAdmission,
   requestReleaseStatus,
+  sendLocalFakeDeliveryEvent,
   uploadReviewedPdf,
   type FinalizationFetcher,
 } from "../../src/app/finalization-client";
@@ -150,5 +151,38 @@ describe("browser finalization client", () => {
       outcome: "closed",
       transactionId: "ea455c24-61f0-40e4-8c78-cde0f3cc4478",
     }))).rejects.toMatchObject({ stage: "closeout", status: 200 });
+  });
+
+  it("sends a bounded local fake event without credentials or redirects", async () => {
+    const release = {
+      transactionId: "0808d915-b28e-4f8a-9d26-f8f9702f110f",
+      statusCapability: CAPABILITY,
+    };
+    const fetcher = vi.fn<FinalizationFetcher>(async () => Response.json({
+      outcome: "applied",
+      recipientRole: "SIGNER",
+      deliveryState: "FAILED",
+      releaseState: "DELIVERY_FAILED",
+    }));
+    await expect(sendLocalFakeDeliveryEvent(
+      release, "SIGNER", "email.bounced", fetcher,
+    )).resolves.toBeUndefined();
+    expect(fetcher.mock.calls[0]).toEqual([
+      `/api/local/releases/${release.transactionId}/fake-webhook`,
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${CAPABILITY}`,
+          "content-type": "application/json",
+        },
+        cache: "no-store",
+        credentials: "omit",
+        redirect: "error",
+      }),
+    ]);
+    expect(JSON.parse(String(fetcher.mock.calls[0][1]?.body))).toEqual({
+      recipientRole: "SIGNER",
+      eventType: "email.bounced",
+    });
   });
 });

@@ -9,9 +9,11 @@ import {
 } from "../../src/app/finalization-client";
 import { createSealProofWorker, type SealProofEnvironment } from "../../src/worker/app";
 import { runLocalFakeDelivery } from "../../src/worker/local-app";
+import localApplication from "../../src/worker/local-app";
 
 const NOW = 1_800_000_000_000;
 const ORIGIN = "https://sealproof.example";
+const LOCAL_WEBHOOK_SECRET = "whsec_c2VhbHByb29mLWxvY2FsLXRlc3Qtc2VjcmV0";
 
 function base64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes));
@@ -102,6 +104,45 @@ describe("production-shaped local Worker", () => {
       releaseState: "SEALED_AWAITING_DELIVERY",
     });
 
+    const localEnvironment = {
+      ...ENVIRONMENT,
+      EXPECTED_HOSTNAME: "localhost",
+      LOCAL_RESEND_WEBHOOK_SECRET: LOCAL_WEBHOOK_SECRET,
+    };
+    const fakeWebhook = (
+      capability: string,
+      recipientRole: "PRODUCTION" | "SIGNER",
+      eventType: "email.delivered" | "email.bounced",
+    ) => localApplication.fetch(new Request(
+      `https://localhost:8787/api/local/releases/${result.transactionId}/fake-webhook`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${capability}`,
+          "content-type": "application/json",
+          origin: "https://localhost:8787",
+        },
+        body: JSON.stringify({ recipientRole, eventType }),
+      },
+    ), localEnvironment);
+    expect((await fakeWebhook("A".repeat(43), "PRODUCTION", "email.delivered")).status).toBe(404);
+    expect((await fakeWebhook(
+      result.statusCapability, "PRODUCTION", "email.delivered",
+    )).status).toBe(200);
+    expect((await fakeWebhook(
+      result.statusCapability, "SIGNER", "email.bounced",
+    )).status).toBe(200);
+
+    const statusAfterEvents = await browserFetcher(`/api/releases/${result.transactionId}/status`, {
+      headers: { authorization: `Bearer ${result.statusCapability}` },
+    });
+    expect(await statusAfterEvents.json()).toMatchObject({
+      releaseState: "DELIVERY_FAILED",
+      productionDeliveryOutcome: "DELIVERED",
+      signerDeliveryOutcome: "FAILED",
+      failureCategory: "delivery_bounced",
+    });
+
     const closeout = await browserFetcher(`/api/releases/${result.transactionId}`, {
       method: "DELETE",
       headers: { authorization: `Bearer ${result.downloadCapability}` },
@@ -125,6 +166,15 @@ describe("production-shaped local Worker", () => {
     expect(response.status).toBe(404);
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(assets.fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not mount the local fake-webhook route on the default Worker", async () => {
+    const worker = createSealProofWorker();
+    const response = await worker.fetch(new Request(
+      `${ORIGIN}/api/local/releases/0808d915-b28e-4f8a-9d26-f8f9702f110f/fake-webhook`,
+      { method: "POST" },
+    ), ENVIRONMENT);
+    expect(response.status).toBe(404);
   });
 
   it("falls through non-API requests to static assets", async () => {
