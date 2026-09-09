@@ -32,6 +32,6 @@ On September 9, 2026, all four TypeScript checks passed, all 125 tests across 26
 
 ## Remaining gates
 
-- Re-measure raw-body Worker CPU remotely with synthetic maximum-size input before approving Free-plan compatibility.
+- Remote maximum-size runtime gate passed; see `docs/spikes/0026-raw-finalization-remote-cpu.md`.
 - Add rate controls before mounting either anonymous route publicly.
 - Connect the browser only after remote CPU evidence and production configuration review.

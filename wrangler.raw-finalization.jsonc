@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "sealproof-raw-finalization-spike",
+  "main": "src/worker/raw-finalization-cpu-spike.ts",
+  "compatibility_date": "2026-09-09",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}
