@@ -24,4 +24,11 @@ export default {
     }
     return localWorker.fetch(request, environment);
   },
+  scheduled(
+    controller: ScheduledController,
+    environment: SealProofEnvironment,
+    context: ExecutionContext,
+  ): void {
+    localWorker.scheduled(controller, environment, context);
+  },
 } satisfies ExportedHandler<SealProofEnvironment>;

@@ -26,7 +26,7 @@ const TEST_SECTIONS = [
   "Electronic process placeholder. The product may explain that the signer reviews the exact generated document, provides a photograph and drawn signature, and receives the same sealed PDF and integrity hash as production.",
   "Delivery placeholder. The product distinguishes provider acceptance from delivery to a recipient mail server and does not claim that a person opened or read an email. This paragraph supplies realistic explanatory length.",
   "Integrity placeholder. SealProof calculates a SHA-256 value over the finalized PDF bytes. The hash can help identify later byte changes, but it does not independently prove identity, comprehension, or legal enforceability.",
-  "Retention placeholder. SealProof-controlled temporary PDF and personal information are deleted on explicit closeout or no later than two hours after finalization. External provider retention must be disclosed separately.",
+  "Retention placeholder. Access to SealProof-controlled temporary PDF and personal information ends at two hours; recurring cleanup then retries deletion until confirmed. Explicit closeout deletes sooner. External provider retention must be disclosed separately.",
   "Failure placeholder. If delivery fails, the production representative may retry the affected role using the same stored bytes or choose an approved download-and-delete path before the unchanged expiration deadline.",
   "Final review placeholder. A production document must use reviewed language and clearly identify the agreement presented to the signer. TEST CONTENT ONLY remains on every page of this fixture so it cannot plausibly be mistaken for that document.",
 ] as const;

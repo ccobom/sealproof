@@ -8,6 +8,7 @@ import {
 } from "../http/ticket-finalization-route";
 import { handleReleaseStatusRequest } from "../http/release-status-route";
 import { handleCloseoutReleaseRequest } from "../http/closeout-release-route";
+import { runScheduledMaintenance } from "../cleanup/scheduled-maintenance";
 
 const PRIVATE_RESPONSE_HEADERS = {
   "cache-control": "private, no-store, max-age=0",
@@ -54,6 +55,13 @@ export function createSealProofWorker(dependencies: SealProofWorkerDependencies 
       }
       if (environment.ASSETS) return environment.ASSETS.fetch(request);
       return new Response("Not found", { status: 404 });
+    },
+    scheduled(
+      controller: ScheduledController,
+      environment: SealProofEnvironment,
+      context: ExecutionContext,
+    ): void {
+      context.waitUntil(runScheduledMaintenance(environment, controller.scheduledTime));
     },
   } satisfies ExportedHandler<SealProofEnvironment>;
 }

@@ -7,7 +7,7 @@
 
 ## Context
 
-SEALPROOF must coordinate two separate email deliveries, retries, downloads, explicit closeout, and unconditional deletion no later than two hours after finalization. Resend webhooks are delivered at least once, may be duplicated, and may arrive out of order. The application therefore needs durable operational state without turning the audit record into permanent storage for personal information.
+SEALPROOF must coordinate two separate email deliveries, retries, downloads, explicit closeout, exact access expiry at two hours, and recurring verified deletion after expiry. Resend webhooks are delivered at least once, may be duplicated, and may arrive out of order. The application therefore needs durable operational state without turning the audit record into permanent storage for personal information.
 
 The finalized PDF already contains the release text, names, date, photo, and signature. Keeping separate server-side copies of those inputs after finalization would increase exposure without supporting an approved product behavior.
 
@@ -181,7 +181,8 @@ The D1 spike must demonstrate that concurrent duplicate handling cannot apply on
 
 ## Expiry and cleanup rules
 
-- Set `expires_at` at finalization and never extend it. It must be no later than two hours after `finalized_at`.
+- Set `expires_at` exactly two hours after finalization and never extend it. Every temporary authorization query must fail at or after that timestamp.
+- Run cleanup every minute. Due rows remain eligible on every subsequent sweep until R2 absence and temporary D1 deletion are confirmed; infrastructure timing must not be described as exact-millisecond physical deletion.
 - Explicit closeout and download-and-delete initiate cleanup immediately.
 - A scheduled cleanup process handles abandoned browser sessions and always applies regardless of delivery state.
 - Cleanup deletes the private R2 object first, then deletes temporary D1 PII and capability data.

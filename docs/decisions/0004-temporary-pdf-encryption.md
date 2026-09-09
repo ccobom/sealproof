@@ -20,7 +20,7 @@ SealProof will apply its own AES-256-GCM envelope encryption before a finalized 
 - Store only PDF ciphertext in R2. Store only the envelope metadata and wrapped PDF key in the temporary D1 row.
 - Retain the SHA-256 of the original PDF as the document-integrity hash. R2's object checksum separately validates the stored ciphertext.
 - Decrypt only transiently for an authorized download or delivery attachment, then discard the plaintext buffer.
-- Delete the ciphertext and wrapped PDF key on explicit closeout or unconditional expiry no later than two hours after finalization.
+- Invalidate access exactly two hours after finalization; delete the ciphertext and wrapped PDF key on explicit closeout or through the recurring verified expiry sweep.
 - Never place plaintext PDF bytes, encryption keys, or envelope material in logs.
 
 The PDF and temporary email-address envelopes use independently generated data keys. Compromise of one stored wrapped key does not supply the other data key.

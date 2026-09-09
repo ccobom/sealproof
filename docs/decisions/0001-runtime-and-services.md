@@ -16,7 +16,7 @@ The project owner initially preferred a Python and JavaScript foundation. After 
 - transparent, easily audited code;
 - minimal operating costs outside Cloudflare;
 - no mandatory user accounts;
-- an unconditional two-hour maximum for SealProof-controlled PDF and PII retention.
+- unconditional access expiry at two hours followed by recurring, verified deletion of SealProof-controlled PDF and PII.
 
 The application must eventually generate one finalized PDF, hash its exact bytes, send separate copies to production and signer, track delivery outcomes, support retry using the same bytes, retain a minimal non-PII audit record, and delete temporary data.
 
@@ -63,7 +63,7 @@ Any stored PDF must:
 - be encrypted according to an approved key-lifecycle design;
 - be reused byte-for-byte for delivery retry rather than regenerated;
 - be deleted immediately on explicit closeout or download-and-delete;
-- be deleted automatically no later than two hours after finalization, regardless of delivery state.
+- become inaccessible exactly two hours after finalization and enter recurring verified deletion regardless of delivery state.
 
 R2 is not approved for permanent release storage.
 
@@ -136,4 +136,4 @@ The spikes used only synthetic document data and deleted every temporary Cloudfl
 
 **Accepted with amendment** — browser-side PDF generation and capability-protected provider retrieval replace Worker-side PDF generation and attachment encoding while retaining the TypeScript, Cloudflare, R2, D1, and Resend architecture.
 
-This acceptance does not approve unfinished security mechanisms. Authenticated duplicate-safe webhooks, automatic two-hour cleanup, signer review behavior, capability expiry, runtime schemas, and representative browser/device testing remain required implementation gates.
+This acceptance does not approve unfinished security mechanisms. Authenticated duplicate-safe webhooks, production cleanup configuration, signer review behavior, runtime schemas, and representative browser/device testing remain required implementation gates. The local scheduled two-hour access-expiry and cleanup path passed in `docs/spikes/0032-scheduled-privacy-maintenance.md`.

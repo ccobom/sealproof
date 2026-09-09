@@ -5,6 +5,9 @@
   "main": "src/worker/local-app.ts",
   "compatibility_date": "2026-09-09",
   "workers_dev": false,
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
   "dev": {
     "ip": "localhost",
     "port": 8787,

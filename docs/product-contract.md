@@ -64,8 +64,8 @@ It may animate while waiting, but it must not claim that an incomplete stage has
 - Retry resends only a failed recipient's message and reuses those bytes; it does not regenerate the document.
 - **Download and delete** downloads a local copy, deletes SealProof's temporary copy, closes the release, and makes retry impossible.
 - Explicit production closeout deletes the temporary PDF immediately.
-- If nobody closes the release, SealProof automatically deletes its temporary PDF no later than two hours after finalization.
-- The two-hour expiry always wins over delivery state. At expiry, SealProof deletes the temporary PDF, disables download and retry, closes the release, and records delivery as unresolved if neither success nor permanent failure was confirmed.
+- If nobody closes the release, SealProof disables access at exactly two hours and submits the temporary PDF and PII to an every-minute deletion sweep that retries until absence is confirmed.
+- The two-hour expiry always wins over delivery state. At expiry, SealProof disables download and retry immediately; scheduled cleanup deletes temporary data, closes the release, and records delivery as unresolved if neither success nor permanent failure was confirmed.
 - A delivery with contradictory terminal events is not retried automatically because the original message may have arrived. The interface reports that delivery could not be confirmed and offers download-and-delete during the unchanged two-hour window.
 - Deleting SealProof's copy does not control any copy already processed or retained by the email provider.
 
@@ -101,5 +101,5 @@ To be decided. Candidate exclusions must be approved before implementation.
 
 - Approved by: Project owner
 - Date: September 8, 2026
-- Notes: State meanings, delivery flow, retry choices, explicit deletion, an unconditional two-hour maximum SealProof retention window, and final-document limits of three pages and 3,000,000 bytes are approved. The document remains a draft until its open decisions are resolved.
+- Notes: State meanings, delivery flow, retry choices, explicit deletion, an unconditional two-hour access window followed by recurring verified deletion, and final-document limits of three pages and 3,000,000 bytes are approved. The document remains a draft until its open decisions are resolved.
 - September 9, 2026: Production-controlled optional signer photography was approved. Photography defaults to required; a waiver must be chosen before handoff, shown to the signer, and recorded in the document.
