@@ -8,6 +8,7 @@ import {
 } from "./release-state";
 
 export interface FinalizeReleaseInput {
+  admissionId?: string;
   pdfBytes: Uint8Array;
   browserDocumentHash: string;
   workflowVersion: string;
@@ -34,7 +35,7 @@ export type FinalizeReleaseResult =
       statusCapability: string;
       downloadCapability: string;
     }
-  | { outcome: "rejected"; reason: PdfUploadFailure | "HASH_MISMATCH" }
+  | { outcome: "rejected"; reason: PdfUploadFailure | "HASH_MISMATCH" | "ADMISSION_REPLAYED" }
   | { outcome: "storage_failed_cleaned"; transactionId: string };
 
 export type ResumeFinalizationResult =
@@ -139,24 +140,36 @@ export async function finalizeRelease(
   );
   const ciphertextDigest = await sha256Bytes(encryptedPdf.ciphertext);
   const ciphertextHash = bytesToHex(ciphertextDigest);
-  const created = await createReleaseState(db, {
-    transactionId: credentials.transactionId,
-    documentHash,
-    workflowVersion: input.workflowVersion,
-    finalizedAt,
-    documentSize: pdfBytes.byteLength,
-    r2ObjectKey: credentials.r2ObjectKey,
-    statusCapabilityHash: credentials.statusCapabilityHash,
-    downloadCapabilityHash: credentials.downloadCapabilityHash,
-    emailAddresses: input.emailAddresses,
-    keyVersion: input.keyVersion,
-    keyEncryptionKey: input.keyEncryptionKey,
-    encryptedPdf: {
-      metadata: encryptedPdf.metadata,
-      ciphertextSize: encryptedPdf.ciphertext.byteLength,
-      ciphertextHash,
-    },
-  });
+  let created;
+  try {
+    created = await createReleaseState(db, {
+      admissionId: input.admissionId,
+      transactionId: credentials.transactionId,
+      documentHash,
+      workflowVersion: input.workflowVersion,
+      finalizedAt,
+      documentSize: pdfBytes.byteLength,
+      r2ObjectKey: credentials.r2ObjectKey,
+      statusCapabilityHash: credentials.statusCapabilityHash,
+      downloadCapabilityHash: credentials.downloadCapabilityHash,
+      emailAddresses: input.emailAddresses,
+      keyVersion: input.keyVersion,
+      keyEncryptionKey: input.keyEncryptionKey,
+      encryptedPdf: {
+        metadata: encryptedPdf.metadata,
+        ciphertextSize: encryptedPdf.ciphertext.byteLength,
+        ciphertextHash,
+      },
+    });
+  } catch (error) {
+    if (input.admissionId) {
+      const consumed = await db.prepare(`
+        SELECT 1 AS consumed FROM consumed_admissions WHERE admission_id = ?
+      `).bind(input.admissionId).first();
+      if (consumed) return { outcome: "rejected", reason: "ADMISSION_REPLAYED" };
+    }
+    throw error;
+  }
 
   let stored: R2Object | null;
   try {

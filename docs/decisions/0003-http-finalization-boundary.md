@@ -86,3 +86,7 @@ This can keep each body simple but creates pre-finalization state, authorization
 The project owner has approved adding Zod. The multipart request format, response fields, and public error contract remain proposed until reviewed after the local test implementation.
 
 The isolated metadata schema passed its local validation gate in `docs/spikes/0012-finalization-metadata-schema.md`. The local HTTP adapter passed its initial correctness gate, but representative multipart parsing failed the intended Free-plan CPU gate in `docs/spikes/0013-local-finalization-http-boundary.md`. The multipart format therefore remains unapproved for production. Request-format, admission, abuse-control, and production-configuration gates remain open.
+
+## Raw-transport amendment
+
+The multipart proposal is superseded for further validation by the anonymous two-request design in `docs/spikes/0024-anonymous-admission-route.md` and `docs/spikes/0025-raw-pdf-ticket-finalization.md`. After server-side bot verification, the first request returns an encrypted five-minute ticket and creates no durable state. The second request carries that ticket in the standard authorization header and the PDF as its raw body. Atomic admission-ID consumption prevents replay without storing pre-finalization PII. This transport passed locally but remains unapproved for production until its representative remote CPU measurement and rate-control gate pass.

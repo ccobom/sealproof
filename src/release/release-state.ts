@@ -14,6 +14,7 @@ export interface StoredEncryptedPdf {
 }
 
 export interface CreateReleaseStateInput {
+  admissionId?: string;
   transactionId: string;
   documentHash: string;
   workflowVersion: string;
@@ -55,6 +56,9 @@ function requireHash(value: string, label: string): void {
 }
 
 function validateInput(input: CreateReleaseStateInput): void {
+  if (input.admissionId !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(input.admissionId)) {
+    throw new Error("Admission ID must be a version 4 UUID");
+  }
   if (!/^[A-Za-z0-9_-]{16,128}$/.test(input.transactionId)) {
     throw new Error("Transaction ID must contain 16-128 safe identifier characters");
   }
@@ -88,7 +92,7 @@ export async function createReleaseState(
     input.keyEncryptionKey,
   );
 
-  await db.batch([
+  const statements = [
     db.prepare(`
       INSERT INTO audit_releases (
         transaction_id, document_hash, hash_algorithm, workflow_version,
@@ -139,7 +143,14 @@ export async function createReleaseState(
         transaction_id, recipient_role, attempt_number, delivery_state, created_at
       ) VALUES (?, 'SIGNER', 1, 'PENDING_SUBMISSION', ?)
     `).bind(input.transactionId, input.finalizedAt),
-  ]);
+  ];
+  if (input.admissionId) {
+    statements.push(db.prepare(`
+      INSERT INTO consumed_admissions (admission_id, transaction_id, consumed_at)
+      VALUES (?, ?, ?)
+    `).bind(input.admissionId, input.transactionId, input.finalizedAt));
+  }
+  await db.batch(statements);
 
   return { transactionId: input.transactionId, expiresAt };
 }

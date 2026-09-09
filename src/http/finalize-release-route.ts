@@ -122,6 +122,9 @@ export async function handleFinalizeReleaseRequest(
   );
 
   if (result.outcome === "rejected") {
+    if (result.reason === "ADMISSION_REPLAYED") {
+      return errorResponse("INVALID_REQUEST", 400);
+    }
     return errorResponse(result.reason, result.reason === "PDF_TOO_LARGE" ? 413 : 400);
   }
   if (result.outcome === "storage_failed_cleaned") {

@@ -26,6 +26,6 @@ On September 9, 2026, all four TypeScript checks passed, all 120 tests across 25
 
 ## Remaining gates
 
-- Atomically consume the ticket admission ID during raw-PDF finalization.
+- Atomic ticket consumption and raw-PDF finalization passed locally in `docs/spikes/0025-raw-pdf-ticket-finalization.md`.
 - Add explicit rate controls outside this handler before mounting it publicly.
 - Add the browser widget and client request only after the local raw-PDF finalization protocol passes.
