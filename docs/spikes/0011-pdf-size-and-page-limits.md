@@ -1,7 +1,7 @@
 # 0011 — PDF Size and Page Limits
 
 - Date: September 8, 2026
-- Result: Partial pass (local synthetic test)
+- Result: Size and page contract passed locally; server-side parsing failed the remote Free CPU gate
 - Related decision: `docs/product-contract.md`, Final document limits
 
 ## Question
@@ -44,12 +44,37 @@ On September 8, 2026:
 - bytes beginning with a PDF-like header but containing no parseable PDF were rejected; and
 - finalization applied the same fixed contract before hashing or storage.
 
-The observed test durations are local wall-clock measurements, not Cloudflare Worker CPU measurements. They do not establish eligibility for Cloudflare's free plan.
+### Remote Cloudflare CPU measurement
 
-## Remaining gate
+With explicit approval, version `47514d82-c434-49ae-9030-4666db7b79d7` was temporarily deployed as `sealproof-pdf-validation-spike`. It exposed one bearer-token-protected synthetic route, had 100% invocation logging, and had no R2, D1, email, or other service binding.
 
-The browser generator has adequate size headroom. Server-side parsing is deliberately retained for independent page-count and parseability enforcement, but it must be measured in a dedicated remote synthetic Worker test before this implementation is accepted for the production free-tier design. If it exceeds the plan's CPU allowance, page-count enforcement must be redesigned or the operating-cost decision revisited; the 3,000,000-byte server boundary remains inexpensive and mandatory either way.
+The route performed the proposed production boundary work: receive the bytes, parse them with `pdf-lib`, enforce the fixed contract, and calculate SHA-256. A final clean sample produced:
+
+| Input | CPU times | Mean | At or below 10 ms |
+| --- | --- | ---: | ---: |
+| 40,858-byte valid PDF | 1, 3, 2, 6, 2, 1, 2, 1, 3, 1 ms | 2.2 ms | 10 of 10 |
+| 2,013,402-byte valid padded PDF | 20, 12, 16, 12, 12, 12, 14, 12, 12, 14 ms | 13.6 ms | 0 of 10 |
+
+All twenty requests returned `200`, and the authorization value was redacted in Cloudflare's tail output. Successful responses are not treated as proof of reliable Free-plan compliance: every large-input observation exceeded the nominal 10 ms request allowance.
+
+The large input was the valid 40,858-byte synthetic PDF padded to the representative maximum-input byte length. This isolates the effect of accepting a large valid body, but it does not reproduce the exact object complexity of the locally generated maximum-input document.
+
+One earlier large request failed in the local HTTP driver before producing a response and is excluded. A preceding unfiltered sample was also excluded from the formal table because its full CPU series could not be captured without truncation.
+
+The temporary Worker and its secret were deleted immediately after measurement. Its former URL returned `404`. Cloudflare may retain synthetic invocation and connection metadata for its normal log-retention period; none of that metadata or the temporary secret is stored in the repository.
+
+## Consequence and remaining gate
+
+The browser generator has adequate size headroom, but full server-side parsing at the permitted large-input boundary is not accepted for the production free-tier design. The approved product contract currently says the Worker independently parses and enforces page count, so code and contract must not silently diverge.
+
+Before changing that contract, isolate remote SHA-256 cost at the same byte boundary. Then choose explicitly between:
+
+- enforcing the three-page generation rule in the reviewed browser generator and signer preview, while retaining the Worker's inexpensive byte-size, header, and exact-byte hash boundaries;
+- adopting a genuinely lightweight, narrowly reviewed server-side page-count validator and testing hostile PDF inputs; or
+- accepting Workers Paid for full `pdf-lib` parsing.
+
+The fixed 3,000,000-byte Worker boundary remains mandatory in every option.
 
 ## Conclusion
 
-The three-page, 3,000,000-byte product contract passes its local correctness and representative-size tests. The spike remains a partial pass because local wall time cannot answer the separate Cloudflare CPU question.
+The three-page, 3,000,000-byte product contract passes its local correctness and representative-size tests. Full `pdf-lib` validation does not reliably fit the intended Free-plan CPU budget at the large-input boundary, so its current placement in the Worker fails that architectural gate and requires an explicit follow-up decision.
