@@ -22,4 +22,4 @@ sealproof-app/
 └── tests/         Future executable evidence for product claims
 ```
 
-No production technology stack has been selected yet.
+The production stack is TypeScript, React/Vite, Cloudflare Workers, D1, private R2, and Resend. The rationale and validation evidence begin in `docs/decisions/0001-runtime-and-services.md`; incomplete pieces remain explicitly proposed or isolated behind spike boundaries.

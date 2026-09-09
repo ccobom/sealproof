@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",
-    "svix": "^2.3.0"
+    "svix": "^2.3.0",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.1.6",
