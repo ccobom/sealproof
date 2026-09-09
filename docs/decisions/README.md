@@ -15,4 +15,5 @@ Current records:
 
 - `0001-runtime-and-services.md` — accepted with amendment;
 - `0002-release-state-and-audit-data.md` — proposed, with its local validation gates completed incrementally; and
-- `0003-http-finalization-boundary.md` — proposed; Zod approved, HTTP contract awaiting local validation and review.
+- `0003-http-finalization-boundary.md` — proposed; Zod approved, multipart transport rejected by its remote CPU gate; and
+- `0004-temporary-pdf-encryption.md` — accepted for implementation, with its isolated cryptographic gate passed.

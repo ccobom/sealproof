@@ -13,7 +13,7 @@ Every item of data used by SEALPROOF should have an explicit lifecycle before th
 | Signer email | Signer | During active release | SEALPROOF backend and Resend | Temporary release state; Resend processing is external | SealProof copy: no later than two hours after finalization; Resend retention requires disclosure | Explicit closeout or automatic expiry | Cleanup completion timestamp; no address retained in audit |
 | Signer photo | Signer device | During active release | SEALPROOF backend; embedded in PDF | Temporary release state and final PDF only | No later than two hours after finalization | Explicit closeout or automatic expiry | Cleanup completion timestamp; no image retained |
 | Signature | Signer device | During active release | SEALPROOF backend; embedded in PDF | Temporary release state and final PDF only | No later than two hours after finalization | Explicit closeout or automatic expiry | Cleanup completion timestamp; no signature retained |
-| Finalized PDF | SEALPROOF | Available for immediate authorized download | Resend, separately for production and signer | Temporary encrypted storage; storage choice open | No later than two hours after finalization | Download-and-delete, production closeout, or automatic expiry | Cleanup completion timestamp plus retained document hash |
+| Finalized PDF | SEALPROOF | Available for immediate authorized download | Resend, separately for production and signer | Application-encrypted ciphertext in private R2; wrapped per-release key in temporary D1 state | No later than two hours after finalization | Download-and-delete, production closeout, or automatic expiry | Cleanup completion timestamp plus retained plaintext document hash |
 | Document hash | SEALPROOF | May be displayed in result | Included in approved transaction information | Minimal audit record | One year after cleanup | Automatic audit expiry | Successful idempotent deletion; no replacement transaction-level record |
 | Transaction ID | SEALPROOF | Displayed during result | Included in approved transaction information | Minimal audit record | One year after cleanup | Automatic audit expiry | Successful idempotent deletion; no replacement transaction-level record |
 | Resend message IDs and role-specific status | Resend | Displayed as role-level status without address | Resend webhook to SEALPROOF | Provider IDs: until cleanup; final role outcomes: one year after cleanup | Cleanup removes provider IDs; automatic audit expiry removes outcomes | Cleanup and audit-deletion operations succeed without retaining provider IDs |
@@ -44,7 +44,7 @@ Define what happens when:
 ## Open lifecycle decisions
 
 - Where pre-finalization PII and the finalized PDF reside during the two-hour window.
-- Encryption and key lifecycle for temporary PDF storage.
+- Operational rotation and recovery procedures for temporary PDF key-encryption keys.
 - Resend attachment and message retention, deletion controls, and final disclosure language.
 - Operational alerting behavior if repeated explicit or automatic cleanup fails.
 
