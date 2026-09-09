@@ -10,7 +10,7 @@ import { PhotoCapture } from "./PhotoCapture";
 import { SignatureCapture } from "./SignatureCapture";
 import { validateSignature, type Signature } from "../document/signature-contract";
 
-type Screen = "setup" | "preview" | "handoff" | "signer" | "photo" | "signature" | "localComplete";
+type Screen = "setup" | "preview" | "handoff" | "signer" | "photo" | "signature" | "finalReview" | "localComplete";
 
 const INITIAL_SETUP: ProductionSetup = {
   productionName: "",
@@ -37,12 +37,19 @@ export function App() {
   const [signatureError, setSignatureError] = useState<string>();
   const [previewUrl, setPreviewUrl] = useState<string>();
   const [previewBytes, setPreviewBytes] = useState<Uint8Array>();
+  const [finalPdfUrl, setFinalPdfUrl] = useState<string>();
+  const [finalPdfBytes, setFinalPdfBytes] = useState<Uint8Array>();
+  const [finalPdfHash, setFinalPdfHash] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
+
+  useEffect(() => () => {
+    if (finalPdfUrl) URL.revokeObjectURL(finalPdfUrl);
+  }, [finalPdfUrl]);
 
   function update(field: keyof ProductionSetup, value: string) {
     setSetup((current) => ({ ...current, [field]: value }));
@@ -140,21 +147,62 @@ export function App() {
     show("signature");
   }
 
-  function completeSignatureStep() {
+  async function completeSignatureStep() {
     try {
       if (!signature) throw new Error("missing");
       validateSignature(signature);
       setSignatureError(undefined);
-      show("localComplete");
+      setBusy(true);
+      const [{ createFinalReleaseDocument }, { validateFinalPdf }, { sha256Hex }] = await Promise.all([
+        import("../document/create-final-release"),
+        import("../document/pdf-contract"),
+        import("../document/hash"),
+      ]);
+      const bytes = await createFinalReleaseDocument({
+        setup,
+        signer,
+        releaseText: SYNTHETIC_RELEASE_TEXT,
+        photo: signerPhoto,
+        signature,
+      });
+      const contract = await validateFinalPdf(bytes);
+      if (!contract.valid) throw new Error(`Generated PDF failed contract: ${contract.reason}`);
+      const ownedBytes = new Uint8Array(bytes);
+      const hash = await sha256Hex(ownedBytes);
+      const blob = new Blob([ownedBytes.buffer as ArrayBuffer], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      if (finalPdfUrl) URL.revokeObjectURL(finalPdfUrl);
+      setFinalPdfBytes(ownedBytes);
+      setFinalPdfHash(hash);
+      setFinalPdfUrl(url);
+      show("finalReview");
     } catch {
-      setSignatureError("Draw a signature before continuing.");
+      setSignatureError(signature ? "SealProof could not generate a valid final test PDF. Nothing was uploaded or sealed." : "Draw a signature before continuing.");
+    } finally {
+      setBusy(false);
     }
+  }
+
+  function correctSignerInputs() {
+    if (finalPdfUrl) URL.revokeObjectURL(finalPdfUrl);
+    setFinalPdfUrl(undefined);
+    setFinalPdfBytes(undefined);
+    setFinalPdfHash(undefined);
+    setSignerPhoto(undefined);
+    setSignature(undefined);
+    setPhotoError(undefined);
+    setSignatureError(undefined);
+    show("signer");
   }
 
   function clearLocalTest() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(undefined);
     setPreviewBytes(undefined);
+    if (finalPdfUrl) URL.revokeObjectURL(finalPdfUrl);
+    setFinalPdfUrl(undefined);
+    setFinalPdfBytes(undefined);
+    setFinalPdfHash(undefined);
     const freshSetup = { ...INITIAL_SETUP, agreementDate: todayForDateInput() };
     setSetup(freshSetup);
     setSigner(initialSignerDetails(freshSetup.agreementDate));
@@ -185,7 +233,7 @@ export function App() {
           <li aria-current={screen === "setup" ? "step" : undefined} className={progressStage >= 0 ? "complete" : ""}>Production details</li>
           <li aria-current={screen === "preview" ? "step" : undefined} className={progressStage >= 1 ? "complete" : ""}>Setup preview</li>
           <li aria-current={["handoff", "signer"].includes(screen) ? "step" : undefined} className={progressStage >= 2 ? "complete" : ""}>Signer review</li>
-          <li aria-current={["photo", "signature", "localComplete"].includes(screen) ? "step" : undefined} className={progressStage >= 3 ? "complete" : ""}>Photo &amp; signature</li>
+          <li aria-current={["photo", "signature", "finalReview", "localComplete"].includes(screen) ? "step" : undefined} className={progressStage >= 3 ? "complete" : ""}>Evidence &amp; final review</li>
         </ol>
 
         {screen === "setup" ? (
@@ -313,16 +361,36 @@ export function App() {
             <p className="lede">Use a finger, stylus, or mouse. The drawing is retained as bounded vector points in this browser page; it is not uploaded or sealed.</p>
             <SignatureCapture onSignatureChange={(value) => { setSignature(value); setSignatureError(undefined); }} />
             {signatureError && <p className="error-summary" role="alert">{signatureError}</p>}
-            <button className="primary-button" type="button" onClick={completeSignatureStep}>Approve signature and continue</button>
+            <button className="primary-button" type="button" onClick={completeSignatureStep} disabled={busy}>{busy ? "Generating final test PDF…" : "Approve signature and generate PDF"}</button>
+          </section>
+        ) : screen === "finalReview" ? (
+          <section className="panel preview-panel" aria-labelledby="final-review-heading">
+            <p className="eyebrow">Exact local PDF review</p>
+            <h1 id="final-review-heading">Review the complete test document</h1>
+            <p className="lede">This preview, download, and SHA-256 value all refer to the same PDF bytes. Review them before confirming the local test.</p>
+            {finalPdfUrl && <iframe className="pdf-preview" src={finalPdfUrl} title="Complete local test release PDF" />}
+            <div className="hash-card">
+              <span>SHA-256</span>
+              <code>{finalPdfHash}</code>
+              <small>Identifies these exact PDF bytes; it does not prove identity or legal enforceability.</small>
+            </div>
+            <div className="preview-actions">
+              <button className="secondary-button" type="button" onClick={correctSignerInputs}>Correct signer inputs</button>
+              {finalPdfUrl && finalPdfBytes && (
+                <a className="secondary-button" href={finalPdfUrl} download="sealproof-local-final-test.pdf">Download exact test PDF</a>
+              )}
+              <button className="primary-button" type="button" onClick={() => show("localComplete")}>I reviewed this exact test PDF</button>
+            </div>
           </section>
         ) : (
           <section className="panel" aria-labelledby="complete-heading">
             <p className="eyebrow">Local evidence complete</p>
-            <h1 id="complete-heading">Your test details, signature{signerPhoto ? ", and photo" : ""} are held locally.</h1>
-            <p className="lede">Nothing was uploaded, stored, emailed, or sealed. Your information, vector signature{signerPhoto ? ", and processed photo" : ""} exists only in this open browser page.</p>
+            <h1 id="complete-heading">Your complete test PDF passed local review.</h1>
+            <p className="lede">Nothing was uploaded, remotely stored, emailed, or sealed. The PDF and its source inputs exist only in this open browser page.</p>
             <div className="handoff-card">
-              <p><strong>This is still a local test:</strong> completing these inputs did not create a contract.</p>
-              <p><strong>Next build:</strong> add the reviewed details, photo or waiver, and signature to a new final PDF for exact review before sealing.</p>
+              <p><strong>Local SHA-256:</strong> <code className="inline-hash">{finalPdfHash}</code></p>
+              <p><strong>This is still a local test:</strong> reviewing this PDF did not seal or deliver a contract.</p>
+              <p><strong>Next build:</strong> encrypt and temporarily upload these exact PDF bytes for independent server verification.</p>
             </div>
             <button className="secondary-button" type="button" onClick={clearLocalTest}>End test and clear inputs</button>
           </section>
