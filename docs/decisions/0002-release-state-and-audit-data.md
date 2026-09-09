@@ -132,6 +132,7 @@ PENDING_SUBMISSION
 - `DELAYED` remains pending and can later become `DELIVERED` or `FAILED`.
 - A bounce is recorded as `FAILED` with a bounded failure category.
 - Retry creates a new delivery-attempt row for the failed role. It does not overwrite the prior attempt or regenerate the PDF.
+- Each role is limited to two retries, for three total attempts including the original. Reaching the limit leaves download-and-delete available and never extends expiry.
 - The current role outcome is derived from its ordered attempts.
 - Provider events that would move an attempt backward, such as `sent` arriving after `delivered`, are recorded as processed but do not downgrade state.
 - If one attempt receives both `DELIVERED` and a terminal failure event, its outcome becomes `UNRESOLVED_CONFLICT` regardless of arrival order. SealProof does not guess which event is authoritative.

@@ -73,6 +73,8 @@ describe("capability-authorized release lifecycle routes", () => {
       releaseState: "SEALED_AWAITING_DELIVERY",
       productionDeliveryOutcome: "PENDING",
       signerDeliveryOutcome: "PENDING",
+      productionRetriesRemaining: 2,
+      signerRetriesRemaining: 2,
       failureCategory: null,
       expiresAt: release.expiresAt,
     });

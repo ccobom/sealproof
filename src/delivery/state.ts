@@ -20,6 +20,7 @@ export type ReleaseDeliveryState =
   | "DELIVERY_UNRESOLVED";
 
 export const MAXIMUM_TEMPORARY_RETENTION_MS = 2 * 60 * 60 * 1_000;
+export const MAXIMUM_DELIVERY_ATTEMPTS_PER_ROLE = 3;
 
 export function calculateExpiry(finalizedAt: number): number {
   if (!Number.isSafeInteger(finalizedAt) || finalizedAt < 0) {

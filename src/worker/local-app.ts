@@ -3,6 +3,7 @@ import { FakeDeliveryProvider } from "../delivery/fake-delivery-provider";
 import { submitPendingDeliveries } from "../delivery/submit-pending-deliveries";
 import { handleProviderAttachmentRequest } from "../http/provider-attachment-route";
 import type { SealedReleaseHandler } from "../http/ticket-finalization-route";
+import type { RetryDeliveryHandler } from "../http/retry-delivery-route";
 import {
   handleLocalFakeWebhookRequest,
   type LocalFakeWebhookEnvironment,
@@ -40,10 +41,12 @@ function providerKeys(value: string): Record<string, Uint8Array> | undefined {
   }
 }
 
-export const runLocalFakeDelivery: SealedReleaseHandler = async (
-  notification,
-  environment,
-) => {
+async function submitLocalFakeDelivery(
+  transactionId: string,
+  publicOrigin: string,
+  submittedAt: number,
+  environment: SealProofEnvironment,
+): Promise<void> {
   const localEnvironment = environment as SealProofEnvironment;
   const piiKey = decodeKey(localEnvironment.KEY_ENCRYPTION_KEY_BASE64);
   const attachmentKeys = providerKeys(localEnvironment.PROVIDER_ATTACHMENT_KEYS_JSON);
@@ -57,24 +60,44 @@ export const runLocalFakeDelivery: SealedReleaseHandler = async (
   }
   try {
     const provider = new FakeDeliveryProvider((request) =>
-      handleProviderAttachmentRequest(request, localEnvironment, notification.sealedAt));
+      handleProviderAttachmentRequest(request, localEnvironment, submittedAt));
     await submitPendingDeliveries(
       localEnvironment.RELEASE_DB,
-      notification.transactionId,
+      transactionId,
       {
         provider,
         keyEncryptionKeys: { [localEnvironment.ACTIVE_KEY_VERSION]: piiKey },
         providerAttachmentKeyVersion: localEnvironment.ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION,
         providerAttachmentKeys: attachmentKeys,
-        publicOrigin: notification.publicOrigin,
+        publicOrigin,
       },
-      notification.sealedAt,
+      submittedAt,
     );
   } finally {
     piiKey.fill(0);
     for (const key of Object.values(attachmentKeys)) key.fill(0);
   }
-};
+}
+
+export const runLocalFakeDelivery: SealedReleaseHandler = async (
+  notification,
+  environment,
+) => submitLocalFakeDelivery(
+  notification.transactionId,
+  notification.publicOrigin,
+  notification.sealedAt,
+  environment as SealProofEnvironment,
+);
+
+export const runLocalFakeRetry: RetryDeliveryHandler = async (
+  notification,
+  environment,
+) => submitLocalFakeDelivery(
+  notification.transactionId,
+  notification.publicOrigin,
+  notification.requestedAt,
+  environment as SealProofEnvironment,
+);
 
 const localWorker = createSealProofWorker({
   fetcher: async () => Response.json({
@@ -83,6 +106,7 @@ const localWorker = createSealProofWorker({
     action: "release-finalization",
   }),
   afterSealed: runLocalFakeDelivery,
+  retryDelivery: runLocalFakeRetry,
 });
 
 export function isLocalRequest(request: Request): boolean {

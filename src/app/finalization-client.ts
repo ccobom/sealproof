@@ -23,6 +23,8 @@ const statusResponseSchema = z.strictObject({
   releaseState: z.enum(["FINALIZING", "SEALED_AWAITING_DELIVERY", "DELIVERED", "DELIVERY_FAILED", "DELIVERY_UNRESOLVED"]),
   productionDeliveryOutcome: z.enum(["PENDING", "DELIVERED", "FAILED", "UNRESOLVED"]),
   signerDeliveryOutcome: z.enum(["PENDING", "DELIVERED", "FAILED", "UNRESOLVED"]),
+  productionRetriesRemaining: z.number().int().min(0).max(2),
+  signerRetriesRemaining: z.number().int().min(0).max(2),
   failureCategory: z.enum([
     "delivery_bounced",
     "provider_submission_failed",
@@ -46,6 +48,12 @@ const fakeWebhookResponseSchema = z.strictObject({
   releaseState: z.enum(["SEALED_AWAITING_DELIVERY", "DELIVERED", "DELIVERY_FAILED"]),
 });
 
+const retryResponseSchema = z.strictObject({
+  outcome: z.enum(["accepted", "pending"]),
+  recipientRole: z.enum(["PRODUCTION", "SIGNER"]),
+  attemptNumber: z.number().int().min(2).safe(),
+});
+
 export type LocalFakeDeliveryEvent = "email.delivered" | "email.bounced";
 
 export interface AdmissionInput {
@@ -65,12 +73,37 @@ type PrivateBrowserRequestInit = RequestInit & {
 
 export class FinalizationRequestError extends Error {
   constructor(
-    readonly stage: "admission" | "upload" | "status" | "closeout" | "fakeDelivery",
+    readonly stage: "admission" | "upload" | "status" | "closeout" | "fakeDelivery" | "retry",
     readonly status: number | undefined,
   ) {
     super(`SealProof ${stage} request failed`);
     this.name = "FinalizationRequestError";
   }
+}
+
+export async function retryFailedDelivery(
+  release: Pick<FinalizedRelease, "transactionId" | "downloadCapability">,
+  recipientRole: "PRODUCTION" | "SIGNER",
+  fetcher: FinalizationFetcher = fetch,
+): Promise<z.infer<typeof retryResponseSchema>> {
+  const request: PrivateBrowserRequestInit = {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${release.downloadCapability}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ recipientRole }),
+    cache: "no-store",
+    credentials: "omit",
+    redirect: "error",
+  };
+  const response = await fetcher(`/api/releases/${release.transactionId}/retry`, request);
+  if (!response.ok) throw new FinalizationRequestError("retry", response.status);
+  const parsed = retryResponseSchema.safeParse(await parsedJson(response, "retry"));
+  if (!parsed.success || parsed.data.recipientRole !== recipientRole) {
+    throw new FinalizationRequestError("retry", response.status);
+  }
+  return parsed.data;
 }
 
 export async function sendLocalFakeDeliveryEvent(

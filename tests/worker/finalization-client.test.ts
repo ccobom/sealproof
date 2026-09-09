@@ -4,6 +4,7 @@ import {
   closeoutRelease,
   requestFinalizationAdmission,
   requestReleaseStatus,
+  retryFailedDelivery,
   sendLocalFakeDeliveryEvent,
   uploadReviewedPdf,
   type FinalizationFetcher,
@@ -102,6 +103,8 @@ describe("browser finalization client", () => {
       releaseState: "SEALED_AWAITING_DELIVERY",
       productionDeliveryOutcome: "PENDING",
       signerDeliveryOutcome: "PENDING",
+      productionRetriesRemaining: 2,
+      signerRetriesRemaining: 2,
       failureCategory: null,
       expiresAt: 7_202_000,
     }));
@@ -143,6 +146,8 @@ describe("browser finalization client", () => {
       releaseState: "SEALED_AWAITING_DELIVERY",
       productionDeliveryOutcome: "PENDING",
       signerDeliveryOutcome: "PENDING",
+      productionRetriesRemaining: 2,
+      signerRetriesRemaining: 2,
       failureCategory: null,
       expiresAt: 7_202_000,
     }))).rejects.toMatchObject({ stage: "status", status: 200 });
@@ -184,5 +189,35 @@ describe("browser finalization client", () => {
       recipientRole: "SIGNER",
       eventType: "email.bounced",
     });
+  });
+
+  it("authorizes retry with the stronger download capability", async () => {
+    const release = {
+      transactionId: "0808d915-b28e-4f8a-9d26-f8f9702f110f",
+      downloadCapability: "B".repeat(43),
+    };
+    const fetcher = vi.fn<FinalizationFetcher>(async () => Response.json({
+      outcome: "accepted",
+      recipientRole: "SIGNER",
+      attemptNumber: 2,
+    }));
+    await expect(retryFailedDelivery(release, "SIGNER", fetcher)).resolves.toEqual({
+      outcome: "accepted",
+      recipientRole: "SIGNER",
+      attemptNumber: 2,
+    });
+    expect(fetcher.mock.calls[0]).toEqual([
+      `/api/releases/${release.transactionId}/retry`,
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${release.downloadCapability}`,
+          "content-type": "application/json",
+        },
+        cache: "no-store",
+        credentials: "omit",
+        redirect: "error",
+      }),
+    ]);
   });
 });

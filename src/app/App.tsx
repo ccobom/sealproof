@@ -46,6 +46,7 @@ export function App() {
   const [finalPdfHash, setFinalPdfHash] = useState<string>();
   const [finalizedRelease, setFinalizedRelease] = useState<FinalizedRelease>();
   const [releaseStatus, setReleaseStatus] = useState<ReleaseStatus>();
+  const [retryingRole, setRetryingRole] = useState<"PRODUCTION" | "SIGNER">();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
   const localRuntime = LOCAL_RUNTIME_HOSTS.has(window.location.hostname);
@@ -268,6 +269,42 @@ export function App() {
     }
   }
 
+  async function simulateLocalRetryEvent(eventType: LocalFakeDeliveryEvent) {
+    if (!retryingRole || !finalizedRelease) return;
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      const { sendLocalFakeDeliveryEvent, requestReleaseStatus } = await import("./finalization-client");
+      await sendLocalFakeDeliveryEvent(finalizedRelease, retryingRole, eventType);
+      setReleaseStatus(await requestReleaseStatus(finalizedRelease));
+      setRetryingRole(undefined);
+    } catch {
+      setFailure("The fake retry webhook did not complete. No live service was contacted.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function retryLocalDelivery(recipientRole: "PRODUCTION" | "SIGNER") {
+    if (!finalizedRelease) return;
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      const { retryFailedDelivery, requestReleaseStatus } = await import("./finalization-client");
+      const result = await retryFailedDelivery(finalizedRelease, recipientRole);
+      setReleaseStatus(await requestReleaseStatus(finalizedRelease));
+      if (result.outcome === "accepted") {
+        setRetryingRole(recipientRole);
+      } else {
+        setFailure("The new retry attempt exists but fake provider acceptance is still pending. You may retry this action; the original PDF and expiry are unchanged.");
+      }
+    } catch {
+      setFailure("SealProof could not create or recover the fake retry attempt. The original PDF and expiry are unchanged.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function clearLocalTest() {
     previewBytes?.fill(0);
     finalPdfBytes?.fill(0);
@@ -281,6 +318,7 @@ export function App() {
     setFinalPdfHash(undefined);
     setFinalizedRelease(undefined);
     setReleaseStatus(undefined);
+    setRetryingRole(undefined);
     const freshSetup = { ...INITIAL_SETUP, agreementDate: todayForDateInput() };
     setSetup(freshSetup);
     setSigner(initialSignerDetails(freshSetup.agreementDate));
@@ -487,15 +525,44 @@ export function App() {
               <p><strong>Signer delivery:</strong> {releaseStatus?.signerDeliveryOutcome ?? "Unavailable"}</p>
               <p><strong>SHA-256:</strong> <code className="inline-hash">{releaseStatus?.documentHash}</code></p>
             </div>
-            {localRuntime && releaseStatus?.releaseState === "SEALED_AWAITING_DELIVERY" && (
+            {localRuntime && (
+              retryingRole
+                ? (retryingRole === "PRODUCTION"
+                  ? releaseStatus?.productionDeliveryOutcome === "PENDING"
+                  : releaseStatus?.signerDeliveryOutcome === "PENDING")
+                : releaseStatus?.releaseState === "SEALED_AWAITING_DELIVERY"
+            ) && (
               <div className="local-simulation" aria-labelledby="local-simulation-heading">
                 <h2 id="local-simulation-heading">Simulate authenticated delivery webhooks</h2>
-                <p>Choose one synthetic outcome. These controls create locally signed, Resend-shaped events and send them through the real verification and state-transition code. No email or external request occurs.</p>
+                <p>{retryingRole ? `Choose the outcome for the new ${retryingRole.toLowerCase()} retry attempt.` : "Choose one synthetic outcome. These controls create locally signed, Resend-shaped events and send them through the real verification and state-transition code. No email or external request occurs."}</p>
                 <div className="preview-actions">
-                  <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateLocalDelivery("email.delivered", "email.delivered")}>Both delivered</button>
-                  <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateLocalDelivery("email.delivered", "email.bounced")}>Production delivered; signer failed</button>
-                  <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateLocalDelivery("email.bounced", "email.delivered")}>Production failed; signer delivered</button>
+                  {retryingRole ? (
+                    <>
+                      <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateLocalRetryEvent("email.delivered")}>Retry delivered</button>
+                      <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateLocalRetryEvent("email.bounced")}>Retry failed again</button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateLocalDelivery("email.delivered", "email.delivered")}>Both delivered</button>
+                      <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateLocalDelivery("email.delivered", "email.bounced")}>Production delivered; signer failed</button>
+                      <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateLocalDelivery("email.bounced", "email.delivered")}>Production failed; signer delivered</button>
+                    </>
+                  )}
                 </div>
+              </div>
+            )}
+            {localRuntime && releaseStatus?.releaseState === "DELIVERY_FAILED" && (
+              <div className="preview-actions">
+                {releaseStatus.productionDeliveryOutcome === "FAILED" && releaseStatus.productionRetriesRemaining > 0 && (
+                  <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("PRODUCTION")}>Retry production delivery</button>
+                )}
+                {releaseStatus.signerDeliveryOutcome === "FAILED" && releaseStatus.signerRetriesRemaining > 0 && (
+                  <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("SIGNER")}>Retry signer delivery</button>
+                )}
+                {((releaseStatus.productionDeliveryOutcome === "FAILED" && releaseStatus.productionRetriesRemaining === 0)
+                  || (releaseStatus.signerDeliveryOutcome === "FAILED" && releaseStatus.signerRetriesRemaining === 0)) && (
+                  <p className="privacy-note">No retries remain for the failed recipient. You can still download the browser copy and delete SealProof's temporary storage.</p>
+                )}
               </div>
             )}
             <div className="preview-actions">

@@ -1,4 +1,5 @@
 import { sha256Hex } from "../document/hash";
+import { MAXIMUM_DELIVERY_ATTEMPTS_PER_ROLE } from "../delivery/state";
 
 const NO_STORE_HEADERS = {
   "cache-control": "private, no-store, max-age=0",
@@ -13,6 +14,8 @@ interface StatusRow {
   signer_delivery_outcome: "PENDING" | "DELIVERED" | "FAILED" | "UNRESOLVED";
   failure_category: string | null;
   expires_at: number;
+  production_attempts: number;
+  signer_attempts: number;
 }
 
 export interface ReleaseStatusEnvironment {
@@ -51,7 +54,13 @@ export async function handleReleaseStatusRequest(
   const capabilityHash = await sha256Hex(new TextEncoder().encode(capability));
   const row = await environment.RELEASE_DB.prepare(`
     SELECT ar.document_hash, ar.release_state, ar.production_delivery_outcome,
-      ar.signer_delivery_outcome, ar.failure_category, tr.expires_at
+      ar.signer_delivery_outcome, ar.failure_category, tr.expires_at,
+      (SELECT COUNT(*) FROM delivery_attempts da
+        WHERE da.transaction_id = tr.transaction_id AND da.recipient_role = 'PRODUCTION')
+        AS production_attempts,
+      (SELECT COUNT(*) FROM delivery_attempts da
+        WHERE da.transaction_id = tr.transaction_id AND da.recipient_role = 'SIGNER')
+        AS signer_attempts
     FROM temporary_releases tr
     JOIN audit_releases ar ON ar.transaction_id = tr.transaction_id
     WHERE tr.transaction_id = ? AND tr.status_capability_hash = ?
@@ -66,6 +75,12 @@ export async function handleReleaseStatusRequest(
     releaseState: row.release_state,
     productionDeliveryOutcome: row.production_delivery_outcome,
     signerDeliveryOutcome: row.signer_delivery_outcome,
+    productionRetriesRemaining: Math.max(
+      0, MAXIMUM_DELIVERY_ATTEMPTS_PER_ROLE - row.production_attempts,
+    ),
+    signerRetriesRemaining: Math.max(
+      0, MAXIMUM_DELIVERY_ATTEMPTS_PER_ROLE - row.signer_attempts,
+    ),
     failureCategory: row.failure_category,
     expiresAt: row.expires_at,
   }, { headers: NO_STORE_HEADERS });

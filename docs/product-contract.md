@@ -46,6 +46,7 @@ CREATING
 - **Delivered** means the recipient's mail server accepted the message. It does not mean the person opened or read it.
 - Overall delivery is **delivered** only when both the production and signer messages are delivered.
 - A delivery delay remains pending. A permanent provider failure or bounce is failed for the affected recipient role.
+- Each recipient role may have at most two retries after its original attempt. Retries never extend the original two-hour expiry or regenerate the sealed PDF.
 - If one delivery attempt receives contradictory terminal events, its status and the overall release become **delivery unresolved**. SEALPROOF does not claim success or failure when the provider evidence conflicts.
 
 ## Progress indicator

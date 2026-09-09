@@ -14,6 +14,10 @@ import {
   handleProviderAttachmentRequest,
   type ProviderAttachmentEnvironment,
 } from "../http/provider-attachment-route";
+import {
+  handleRetryDeliveryRequest,
+  type RetryDeliveryHandler,
+} from "../http/retry-delivery-route";
 
 const PRIVATE_RESPONSE_HEADERS = {
   "cache-control": "private, no-store, max-age=0",
@@ -32,6 +36,7 @@ export interface SealProofWorkerDependencies {
   fetcher?: NetworkFetcher;
   now?: () => number;
   afterSealed?: SealedReleaseHandler;
+  retryDelivery?: RetryDeliveryHandler;
 }
 
 export function createSealProofWorker(dependencies: SealProofWorkerDependencies = {}) {
@@ -51,6 +56,11 @@ export function createSealProofWorker(dependencies: SealProofWorkerDependencies 
       }
       if (/^\/api\/releases\/[A-Za-z0-9_-]{16,128}\/status$/.test(path)) {
         return handleReleaseStatusRequest(request, environment, now());
+      }
+      if (/^\/api\/releases\/[A-Za-z0-9_-]{16,128}\/retry$/.test(path)) {
+        return handleRetryDeliveryRequest(
+          request, environment, now(), dependencies.retryDelivery,
+        );
       }
       if (/^\/api\/releases\/[A-Za-z0-9_-]{16,128}$/.test(path)) {
         return handleCloseoutReleaseRequest(request, environment, now());
