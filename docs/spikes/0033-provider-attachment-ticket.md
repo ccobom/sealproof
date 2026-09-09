@@ -15,7 +15,7 @@ The retrieval route accepts the ticket only in a fixed HTTPS path on the configu
 
 ## Storage and disclosure
 
-No provider bearer or bearer hash is added to D1. A fresh ticket can be issued from existing non-secret attempt metadata after interruption. The URL remains sensitive transport metadata and may be processed in Cloudflare and Resend logs; this is an unavoidable consequence of Resend's URL-based attachment interface and requires disclosure.
+The retrieval-boundary spike initially added no provider bearer or bearer hash to D1. The next injected-provider spike demonstrated that a fresh ticket changes the Resend request payload and cannot safely reuse the same idempotency key. Decision 0006 was therefore amended: the exact ticket is now retained only inside a second application-encrypted, attempt-bound D1 envelope until cleanup. The URL remains sensitive transport metadata and may be processed in Cloudflare and Resend logs; this is an unavoidable consequence of Resend's URL-based attachment interface and requires disclosure.
 
 ## Scope
 
@@ -23,4 +23,4 @@ Tests use generated PDFs, synthetic addresses, local D1/R2, and deterministic ke
 
 ## Next gate
 
-Build an injected delivery-submission coordinator that generates one ticket per pending role, supplies two distinct attachment URLs and idempotency keys to a fake Resend adapter, and records only validated provider message identifiers. The fake provider must retrieve and compare both attachments before any real email test.
+Completed by spike 0034. The next gate is Worker lifecycle integration in explicitly local fake mode before any real email test.

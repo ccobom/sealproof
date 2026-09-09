@@ -15,7 +15,9 @@ Resend's remote attachment request does not provide an application-defined autho
 
 Issue a separate encrypted provider attachment ticket for each delivery attempt. The ticket contains only transaction ID, delivery-attempt ID, recipient role, document hash, issuance time, and the immutable release expiry. It contains no name, email address, provider identifier, storage key, document bytes, or browser capability.
 
-The ticket is encrypted and authenticated with AES-GCM under a dedicated, versioned provider-attachment key. It is never stored in D1. Because its inputs are durable and non-secret, SealProof can issue a fresh equivalent ticket after an interrupted submission without storing a recoverable bearer credential.
+The ticket is encrypted and authenticated with AES-GCM under a dedicated, versioned provider-attachment key. Before provider submission, SealProof places the exact ticket inside a second authenticated encryption envelope bound to its transaction and attempt, then stores only that outer ciphertext temporarily in D1. The usable ticket never appears in D1 plaintext.
+
+This encrypted temporary copy is required because Resend rejects reuse of an idempotency key when any request payload field changes. Issuing a fresh cryptographically equivalent ticket would still change the attachment URL. Persisting the encrypted original permits an interrupted submission to retry the identical request body without exposing a usable bearer in a database disclosure.
 
 Retrieval requires all ticket fields to match an active delivery attempt and release. It independently verifies encrypted R2 size and hash, decrypts using the existing PDF envelope, validates the resulting document identity, checks authorization again after decryption, and returns private no-store PDF bytes. Cleanup or expiry makes every outstanding provider ticket unusable even if its URL remains in a third-party log.
 
@@ -29,9 +31,9 @@ Rejected. It would give a provider-facing URL the browser's broader download aut
 
 Rejected. SealProof would lose the bearer after a crash between recording its hash and completing an idempotent provider submission.
 
-### Store an encrypted random provider capability
+### Store an encrypted provider ticket
 
-Viable but not selected. It adds per-attempt encrypted secret state when an authenticated, scoped, expiring ticket can be reconstructed safely.
+Selected after executable recovery testing disproved the earlier reconstruction assumption. A newly encrypted ticket changes the request payload and therefore cannot safely reuse Resend's idempotency key.
 
 ### Send Base64 content
 
@@ -44,7 +46,8 @@ Rejected for the current architecture because it increases Worker memory and CPU
 - Active and immediately previous provider key versions must remain available for the maximum two-hour ticket lifetime during rotation.
 - Provider tickets cannot extend release expiry or survive cleanup.
 - A separate ticket is scoped to exactly one role and attempt.
+- Cleanup deletes the outer encrypted ticket envelope with the delivery attempt.
 
 ## Outcome
 
-Accepted for local validation. Live Resend submission remains prohibited until the injected provider workflow, key configuration, URL construction, webhook path, and cleanup invalidation pass together.
+Accepted for local validation and amended after the injected fake provider exposed Resend's identical-payload recovery requirement. Live Resend submission remains prohibited until Worker lifecycle integration, live key configuration, and the complete webhook path pass together.

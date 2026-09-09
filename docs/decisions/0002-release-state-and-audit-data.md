@@ -24,8 +24,9 @@ Use private R2 only for the exact finalized PDF bytes. D1 stores the R2 object k
 ### Identifier rules
 
 - Generate a random transaction ID for each finalized release.
-- Generate independent high-entropy capabilities for status, download, and provider attachment access.
+- Generate independent high-entropy capabilities for status and download, plus a role- and attempt-scoped encrypted ticket for provider attachment access.
 - Store only SHA-256 digests of status and download capabilities in D1.
+- Store an exact provider ticket only inside a second application-encrypted, attempt-bound envelope so an idempotent provider retry can reproduce the identical request payload.
 - Never use an email address, name, project title, sequential number, or document hash as an authorization credential.
 - A transaction ID identifies a release but does not authorize access to it.
 
