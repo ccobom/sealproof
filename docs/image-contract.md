@@ -1,7 +1,7 @@
 # Image Contract
 
-- Status: Proposed and validated by the local PDF spike
-- Date: September 8, 2026
+- Status: Browser behavior approved; byte contract validated locally
+- Date: September 9, 2026
 
 Images arriving at the Worker are untrusted bytes. A browser filename, extension, or MIME type is not proof of format.
 
@@ -15,6 +15,17 @@ Images arriving at the Worker are untrusted bytes. A browser filename, extension
 - Worker responsibility: verify JPEG bytes, dimensions, size, and absence of prohibited application metadata before embedding
 
 The photo must not carry EXIF or location metadata into the finalized PDF. The current spike rejects JPEG APP1 metadata rather than attempting to preserve or interpret it.
+
+### Browser capture behavior
+
+- Camera access begins only after an explicit signer action and requests video without audio.
+- The signer may choose the preferred front or rear camera, subject to browser and device support.
+- The captured frame is resized to a maximum 1280-pixel edge and re-encoded through a canvas as JPEG, removing source EXIF rather than copying it.
+- Encoding aims for no more than 1,000,000 bytes and must satisfy the unchanged 2,000,000-byte hard limit.
+- The signer sees the processed image and may retake or clear it before continuing.
+- Active camera tracks stop after capture, on failure, and when the component closes.
+- Captured bytes and preview URLs remain in browser memory only in the current slice and are cleared when the local test ends.
+- Camera failure or denied permission blocks the step when production marked the photograph as required. Production may instead waive the photograph during setup, before handoff; that choice is displayed to the signer and recorded in the document. File or gallery upload is not treated as equivalent to a current signer photograph.
 
 ## Signature
 

@@ -9,5 +9,5 @@
     "types": []
   },
   "include": ["worker-configuration.d.ts", "src/**/*.ts"],
-  "exclude": ["src/browser-spike/**"]
+  "exclude": ["src/app/**", "src/browser-spike/**"]
 }

@@ -17,7 +17,7 @@ This document will define the observable behavior of the smallest production rel
 | Start release | Production representative | Production and project information, production email, release text | Signing workflow is prepared | Invalid or missing fields prevent continuation and identify the affected field |
 | Handoff | Production representative | Confirmation that setup is complete | Explicit instruction to hand the device to the signer | The signer cannot accidentally edit production setup during the handoff |
 | Review and consent | Signer | Name, signer email, date, explicit agreement | Signer can proceed to identity evidence and signature | Missing consent or required information prevents continuation |
-| Photo and signature | Signer | Signer photo and drawn signature | Signer can finalize the release | Missing, invalid, or oversized inputs prevent finalization |
+| Photo and signature | Signer | Signer photo when production requires it, plus drawn signature | Signer can finalize the release | A missing required photo, missing signature, or invalid or oversized input prevents finalization; a production-approved photo waiver is shown and recorded rather than treated as missing evidence |
 | Finalize | SEALPROOF | Approved release data, photo, and signature | Progress indicator advances through actual completed stages | A failure produces an accurate failure state rather than a false success |
 | Seal | SEALPROOF | Final PDF bytes | PDF is hashed and the hash is verified against the same bytes | The release is not called sealed if PDF generation or hash verification fails |
 | Await delivery | SEALPROOF | The exact sealed PDF submitted separately for production and signer | **THE CONTRACT IS SEALED** screen displays both delivery states as pending | Provider rejection moves the affected delivery to failed; a delay remains pending |
@@ -78,6 +78,14 @@ It may animate while waiting, but it must not claim that an incomplete stage has
 - The three-page rule is a constraint of SealProof's generator and review flow, not a claim that the Worker can prove the page count of bytes submitted by a modified or hostile client.
 - A document outside either limit is not sealed and produces a clear correction path rather than silently truncating agreement text, images, or signatures.
 
+## Optional photograph
+
+- Production decides during setup whether a current signer photograph is required; the default is required.
+- The choice is fixed before device handoff, displayed to the signer, and recorded in the generated PDF.
+- If required, camera denial or failure cannot be silently bypassed.
+- If waived by production, the signer may take a photo or explicitly continue without one.
+- Gallery or file upload is not treated as equivalent to taking a current signer photograph.
+
 ## Explicitly outside the first release
 
 To be decided. Candidate exclusions must be approved before implementation.
@@ -94,3 +102,4 @@ To be decided. Candidate exclusions must be approved before implementation.
 - Approved by: Project owner
 - Date: September 8, 2026
 - Notes: State meanings, delivery flow, retry choices, explicit deletion, an unconditional two-hour maximum SealProof retention window, and final-document limits of three pages and 3,000,000 bytes are approved. The document remains a draft until its open decisions are resolved.
+- September 9, 2026: Production-controlled optional signer photography was approved. Photography defaults to required; a waiver must be chosen before handoff, shown to the signer, and recorded in the document.

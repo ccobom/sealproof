@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 import syntheticPhotoBuffer from "../../src/spike/fixtures/synthetic-photo.jpg";
 import {
+  containedPhotoDimensions,
   validateJpegPhoto,
 } from "../../src/document/image-contract";
 
 describe("image contract", () => {
+  it("preserves aspect ratio while bounding the longest browser edge", () => {
+    expect(containedPhotoDimensions(4032, 3024)).toEqual({ width: 1280, height: 960 });
+    expect(containedPhotoDimensions(900, 1200)).toEqual({ width: 900, height: 1200 });
+    expect(containedPhotoDimensions(640, 480)).toEqual({ width: 640, height: 480 });
+    expect(() => containedPhotoDimensions(0, 480)).toThrow("invalid frame dimensions");
+  });
   it("accepts the representative JPEG photo fixture", () => {
     expect(validateJpegPhoto(new Uint8Array(syntheticPhotoBuffer))).toEqual({
       width: 1280,

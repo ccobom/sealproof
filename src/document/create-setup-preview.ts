@@ -48,6 +48,7 @@ export async function createSetupPreviewDocument(
     ["Production email", setup.productionEmail],
     ["Project", setup.projectTitle],
     ["Agreement date", setup.agreementDate],
+    ["Signer photograph", setup.photoRequired ? "Required" : "Waived by production"],
   ] as const;
 
   let y = 662;

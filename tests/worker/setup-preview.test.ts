@@ -10,6 +10,7 @@ const VALID_SETUP = {
   productionEmail: "producer@example.invalid",
   projectTitle: "Synthetic Test Project",
   agreementDate: "2026-09-09",
+  photoRequired: true,
 };
 
 describe("production setup preview", () => {

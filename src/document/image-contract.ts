@@ -11,6 +11,17 @@ export interface ImageDimensions {
   height: number;
 }
 
+export function containedPhotoDimensions(width: number, height: number): ImageDimensions {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1) {
+    throw new Error("Camera returned invalid frame dimensions");
+  }
+  const scale = Math.min(1, IMAGE_CONTRACT.photo.maximumLongestEdge / Math.max(width, height));
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
 function fail(message: string): never {
   throw new Error(`Invalid spike image: ${message}`);
 }

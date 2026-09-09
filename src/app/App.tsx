@@ -6,8 +6,9 @@ import {
   type ProductionSetup,
 } from "./production-setup";
 import { signerDetailsSchema, type SignerDetails } from "./signer-details";
+import { PhotoCapture } from "./PhotoCapture";
 
-type Screen = "setup" | "preview" | "handoff" | "signer" | "signerComplete";
+type Screen = "setup" | "preview" | "handoff" | "signer" | "photo" | "photoComplete";
 
 const INITIAL_SETUP: ProductionSetup = {
   productionName: "",
@@ -15,6 +16,7 @@ const INITIAL_SETUP: ProductionSetup = {
   productionEmail: "",
   projectTitle: "",
   agreementDate: todayForDateInput(),
+  photoRequired: true,
 };
 
 function initialSignerDetails(agreementDate: string): SignerDetails {
@@ -27,6 +29,8 @@ export function App() {
   const [signer, setSigner] = useState<SignerDetails>(() => initialSignerDetails(INITIAL_SETUP.agreementDate));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [signerErrors, setSignerErrors] = useState<Record<string, string>>({});
+  const [signerPhoto, setSignerPhoto] = useState<Uint8Array>();
+  const [photoError, setPhotoError] = useState<string>();
   const [previewUrl, setPreviewUrl] = useState<string>();
   const [previewBytes, setPreviewBytes] = useState<Uint8Array>();
   const [busy, setBusy] = useState(false);
@@ -120,7 +124,16 @@ export function App() {
     }
     setSigner(parsed.data);
     setSetup((current) => ({ ...current, agreementDate: parsed.data.signedDate }));
-    show("signerComplete");
+    show("photo");
+  }
+
+  function completePhotoStep() {
+    if (!signerPhoto && setup.photoRequired) {
+      setPhotoError("Take and approve a photo before continuing.");
+      return;
+    }
+    setPhotoError(undefined);
+    show("photoComplete");
   }
 
   function clearLocalTest() {
@@ -130,13 +143,14 @@ export function App() {
     const freshSetup = { ...INITIAL_SETUP, agreementDate: todayForDateInput() };
     setSetup(freshSetup);
     setSigner(initialSignerDetails(freshSetup.agreementDate));
+    setSignerPhoto(undefined);
     setErrors({});
     setSignerErrors({});
     setFailure(undefined);
     show("setup");
   }
 
-  const progressStage = screen === "setup" ? 0 : screen === "preview" ? 1 : 2;
+  const progressStage = screen === "setup" ? 0 : screen === "preview" ? 1 : ["handoff", "signer"].includes(screen) ? 2 : 3;
 
   return (
     <div className="app-shell">
@@ -153,8 +167,8 @@ export function App() {
         <ol className="progress" aria-label="Current progress">
           <li aria-current={screen === "setup" ? "step" : undefined} className={progressStage >= 0 ? "complete" : ""}>Production details</li>
           <li aria-current={screen === "preview" ? "step" : undefined} className={progressStage >= 1 ? "complete" : ""}>Setup preview</li>
-          <li aria-current={["handoff", "signer", "signerComplete"].includes(screen) ? "step" : undefined} className={progressStage >= 2 ? "complete" : ""}>Signer review</li>
-          <li>Photo, seal &amp; deliver</li>
+          <li aria-current={["handoff", "signer"].includes(screen) ? "step" : undefined} className={progressStage >= 2 ? "complete" : ""}>Signer review</li>
+          <li aria-current={["photo", "photoComplete"].includes(screen) ? "step" : undefined} className={progressStage >= 3 ? "complete" : ""}>Photo &amp; signature</li>
         </ol>
 
         {screen === "setup" ? (
@@ -179,6 +193,12 @@ export function App() {
               <Field label="Agreement date" hint="The signer will be able to confirm or correct this date." id="agreementDate" required error={errors.agreementDate}>
                 <input id="agreementDate" type="date" value={setup.agreementDate} onChange={(event) => update("agreementDate", event.target.value)} aria-describedby={errors.agreementDate ? "agreementDate-error" : "agreementDate-hint"} />
               </Field>
+              <div className="consent-field production-option">
+                <label htmlFor="photoRequired">
+                  <input id="photoRequired" type="checkbox" checked={setup.photoRequired} onChange={(event) => setSetup((current) => ({ ...current, photoRequired: event.target.checked }))} />
+                  <span><strong>Require a current signer photograph</strong><small>Turn this off if a photograph is unnecessary for this release. The choice will be shown to the signer and recorded in the document.</small></span>
+                </label>
+              </div>
 
               <div className="release-copy" aria-labelledby="release-heading">
                 <div>
@@ -229,6 +249,7 @@ export function App() {
               <div><dt>Collected by</dt><dd>{setup.signatureCollector || setup.productionName}</dd></div>
               <div><dt>Production email</dt><dd>{setup.productionEmail}</dd></div>
               <div><dt>Project</dt><dd>{setup.projectTitle}</dd></div>
+              <div><dt>Signer photograph</dt><dd>{setup.photoRequired ? "Required" : "Waived by production"}</dd></div>
             </dl>
 
             <div className="release-copy signer-release" aria-labelledby="signer-release-heading">
@@ -259,14 +280,23 @@ export function App() {
               <button className="primary-button" type="submit">Continue</button>
             </form>
           </section>
+        ) : screen === "photo" ? (
+          <section className="panel" aria-labelledby="photo-heading">
+            <p className="eyebrow">Signer photograph</p>
+            <h1 id="photo-heading">Take a current photo</h1>
+            <p className="lede">{setup.photoRequired ? "Production requires a current signer photograph. SealProof will ask for camera access only when you enable it." : "Production marked the signer photograph as optional. You may take one, or continue without one."}</p>
+            <PhotoCapture onPhotoChange={(photo) => { setSignerPhoto(photo); setPhotoError(undefined); }} />
+            {photoError && <p className="error-summary" role="alert">{photoError}</p>}
+            <button className="primary-button" type="button" onClick={completePhotoStep}>{signerPhoto ? "Approve photo and continue" : setup.photoRequired ? "Continue" : "Continue without a photo"}</button>
+          </section>
         ) : (
           <section className="panel" aria-labelledby="complete-heading">
-            <p className="eyebrow">Signer review complete</p>
-            <h1 id="complete-heading">Your test details were accepted locally.</h1>
-            <p className="lede">Nothing was uploaded, stored, emailed, signed, or sealed. Your information exists only in this open browser page.</p>
+            <p className="eyebrow">Photo step complete</p>
+            <h1 id="complete-heading">Your test details{signerPhoto ? " and photo" : ""} are held locally.</h1>
+            <p className="lede">Nothing was uploaded, stored, emailed, signed, or sealed. Your information{signerPhoto ? " and processed photo" : ""} exists only in this open browser page.</p>
             <div className="handoff-card">
-              <p><strong>Next build:</strong> photo capture and a drawn vector signature.</p>
-              <p>Those inputs will be added to a new final PDF for an exact review before sealing.</p>
+              <p><strong>Next build:</strong> a drawn vector signature.</p>
+              <p>The signer details, photo, and signature will later be added to a new final PDF for exact review before sealing.</p>
             </div>
             <button className="secondary-button" type="button" onClick={clearLocalTest}>End test and clear inputs</button>
           </section>

@@ -11,6 +11,7 @@ export const productionSetupSchema = z.strictObject({
   productionEmail: z.string().trim().max(254).pipe(z.email("Enter a valid production email.")),
   projectTitle: requiredText("Project title", 160),
   agreementDate: z.iso.date("Enter a valid agreement date."),
+  photoRequired: z.boolean(),
 });
 
 export type ProductionSetup = z.infer<typeof productionSetupSchema>;

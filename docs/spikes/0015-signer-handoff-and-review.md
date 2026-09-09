@@ -39,7 +39,7 @@ On September 9, 2026:
 
 - Complete a manual desktop and narrow-screen browser walkthrough.
 - Test keyboard-only navigation, focus movement on validation failure, browser autofill behavior, zoom, and embedded-PDF fallback behavior.
-- Add real photo capture and vector signature as separate reviewed slices.
+- Local photo capture subsequently passed its automated gate in `docs/spikes/0016-local-photo-capture.md`; manual camera testing and vector signature remain open.
 - Generate a new exact final PDF containing approved signer information and evidence, then require final review before any upload.
 - Replace synthetic release text only after reviewed language is supplied and approved.
 
