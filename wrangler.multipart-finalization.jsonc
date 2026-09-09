@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "sealproof-multipart-finalization-spike",
+  "main": "src/worker/multipart-finalization-spike.ts",
+  "compatibility_date": "2026-09-09",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

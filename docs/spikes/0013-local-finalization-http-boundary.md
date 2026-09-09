@@ -1,7 +1,7 @@
-# 0013 — Local Finalization HTTP Boundary
+# 0013 — Finalization HTTP Boundary
 
 - Date: September 9, 2026
-- Result: Pass locally; multipart CPU and abuse-control gates remain open
+- Result: Local correctness pass; multipart failed the remote Free CPU gate
 - Related decision: `docs/decisions/0003-http-finalization-boundary.md`
 
 ## Question
@@ -43,6 +43,30 @@ On September 9, 2026, focused local tests demonstrated:
 - Production secrets and D1/R2 bindings must be configured and reviewed separately.
 - Delivery submission must be connected only after finalization returns `sealed`.
 
+## Remote multipart CPU measurement
+
+With explicit approval, version `8d68ba46-1803-423d-8bf6-4806792d4bc7` was temporarily deployed as `sealproof-multipart-finalization-spike`. It exposed one bearer-token-protected synthetic route with 100% invocation logging and no D1, R2, Resend, or other service binding.
+
+The route performed multipart parsing, strict Zod metadata validation, PDF byte-size and header validation, SHA-256, and browser/Worker hash comparison. A Node `FormData` driver sent a valid 2,013,402-byte synthetic PDF; the complete encoded requests were 2,013,849 bytes.
+
+After five warmups, twenty measured requests reported CPU times of:
+
+```text
+9, 6, 5, 6, 8, 13, 15, 11, 6, 7, 7, 15, 6, 10, 5, 8, 6, 10, 15, 11 ms
+```
+
+- mean: 8.95 ms;
+- median: 8 ms;
+- minimum: 5 ms;
+- maximum: 15 ms; and
+- invocations at or below 10 ms: 14 of 20.
+
+All measured requests returned `200`, but six of twenty exceeded the nominal 10 ms allowance before encryption, D1, or R2 coordination was added. This does not provide enough margin to accept multipart finalization as reliably Free-plan-compatible.
+
+An earlier PowerShell multipart driver produced rejected requests because its wire encoding did not match browser `FormData`; those invocations are excluded. The repository retains the browser-compatible Node driver for audit and reproduction.
+
+The temporary Worker and secret were deleted immediately after measurement. Its former URL returned `404`. Cloudflare may retain synthetic invocation and connection metadata for its normal log-retention period; the temporary secret is not stored in the repository.
+
 ## Conclusion
 
-The thin local adapter passes its correctness and failure-safety gate. It remains deliberately disconnected from the Worker entry point until CPU, request-admission, abuse-control, and configuration gates are resolved.
+The thin local adapter passes its correctness and failure-safety gate, but the multipart transport fails the intended Free-plan CPU gate at the representative large-input boundary. It remains deliberately disconnected from the Worker entry point. This result does not block building a local interactive vertical slice, but a production request format must be reconsidered alongside request admission and abuse control.
