@@ -5,8 +5,9 @@ import {
   todayForDateInput,
   type ProductionSetup,
 } from "./production-setup";
+import { signerDetailsSchema, type SignerDetails } from "./signer-details";
 
-type Screen = "setup" | "preview";
+type Screen = "setup" | "preview" | "handoff" | "signer" | "signerComplete";
 
 const INITIAL_SETUP: ProductionSetup = {
   productionName: "",
@@ -16,10 +17,16 @@ const INITIAL_SETUP: ProductionSetup = {
   agreementDate: todayForDateInput(),
 };
 
+function initialSignerDetails(agreementDate: string): SignerDetails {
+  return { signerName: "", signerEmail: "", signedDate: agreementDate, agreed: false };
+}
+
 export function App() {
   const [screen, setScreen] = useState<Screen>("setup");
   const [setup, setSetup] = useState(INITIAL_SETUP);
+  const [signer, setSigner] = useState<SignerDetails>(() => initialSignerDetails(INITIAL_SETUP.agreementDate));
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [signerErrors, setSignerErrors] = useState<Record<string, string>>({});
   const [previewUrl, setPreviewUrl] = useState<string>();
   const [previewBytes, setPreviewBytes] = useState<Uint8Array>();
   const [busy, setBusy] = useState(false);
@@ -82,6 +89,55 @@ export function App() {
     window.scrollTo(0, 0);
   }
 
+  function show(next: Screen) {
+    setScreen(next);
+    window.scrollTo(0, 0);
+  }
+
+  function beginHandoff() {
+    setSigner(initialSignerDetails(setup.agreementDate));
+    setSignerErrors({});
+    show("handoff");
+  }
+
+  function updateSigner<K extends keyof SignerDetails>(field: K, value: SignerDetails[K]) {
+    setSigner((current) => ({ ...current, [field]: value }));
+    setSignerErrors((current) => ({ ...current, [field]: "" }));
+  }
+
+  function completeSignerReview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const parsed = signerDetailsSchema.safeParse(signer);
+    if (!parsed.success) {
+      const fieldErrors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const field = String(issue.path[0] ?? "form");
+        fieldErrors[field] ??= issue.message;
+      }
+      setSignerErrors(fieldErrors);
+      document.getElementById(String(parsed.error.issues[0]?.path[0]))?.focus();
+      return;
+    }
+    setSigner(parsed.data);
+    setSetup((current) => ({ ...current, agreementDate: parsed.data.signedDate }));
+    show("signerComplete");
+  }
+
+  function clearLocalTest() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(undefined);
+    setPreviewBytes(undefined);
+    const freshSetup = { ...INITIAL_SETUP, agreementDate: todayForDateInput() };
+    setSetup(freshSetup);
+    setSigner(initialSignerDetails(freshSetup.agreementDate));
+    setErrors({});
+    setSignerErrors({});
+    setFailure(undefined);
+    show("setup");
+  }
+
+  const progressStage = screen === "setup" ? 0 : screen === "preview" ? 1 : 2;
+
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -95,10 +151,10 @@ export function App() {
 
       <main>
         <ol className="progress" aria-label="Current progress">
-          <li aria-current={screen === "setup" ? "step" : undefined} className="complete">Production details</li>
-          <li aria-current={screen === "preview" ? "step" : undefined} className={screen === "preview" ? "complete" : ""}>Exact preview</li>
-          <li>Signer handoff</li>
-          <li>Seal &amp; deliver</li>
+          <li aria-current={screen === "setup" ? "step" : undefined} className={progressStage >= 0 ? "complete" : ""}>Production details</li>
+          <li aria-current={screen === "preview" ? "step" : undefined} className={progressStage >= 1 ? "complete" : ""}>Setup preview</li>
+          <li aria-current={["handoff", "signer", "signerComplete"].includes(screen) ? "step" : undefined} className={progressStage >= 2 ? "complete" : ""}>Signer review</li>
+          <li>Photo, seal &amp; deliver</li>
         </ol>
 
         {screen === "setup" ? (
@@ -138,19 +194,81 @@ export function App() {
               </button>
             </form>
           </section>
-        ) : (
+        ) : screen === "preview" ? (
           <section className="panel preview-panel" aria-labelledby="preview-heading">
             <p className="eyebrow">Step 2 of 2 in this build</p>
-            <h1 id="preview-heading">Review the exact document</h1>
-            <p className="lede">These are the exact PDF bytes generated in your browser. Nothing has left this device.</p>
+            <h1 id="preview-heading">Review the setup document</h1>
+            <p className="lede">These are the exact PDF bytes generated from production's current setup. Signer details and evidence will be added only in later reviewed steps.</p>
             {previewUrl && <iframe className="pdf-preview" src={previewUrl} title="Generated test release PDF" />}
             <div className="preview-actions">
               <button className="secondary-button" type="button" onClick={editSetup}>Edit production details</button>
               {previewUrl && previewBytes && (
                 <a className="primary-button" href={previewUrl} download="sealproof-test-preview.pdf">Download test PDF</a>
               )}
+              <button className="primary-button" type="button" onClick={beginHandoff}>Approve setup and hand off</button>
             </div>
-            <p className="next-note"><strong>Next build:</strong> signer handoff, identity details, photo, and signature.</p>
+          </section>
+        ) : screen === "handoff" ? (
+          <section className="panel handoff-panel" aria-labelledby="handoff-heading">
+            <p className="eyebrow">Device handoff</p>
+            <h1 id="handoff-heading">Please hand this device to the signer.</h1>
+            <div className="handoff-card">
+              <p><strong>Production:</strong> do not continue on the signer's behalf.</p>
+              <p><strong>Signer:</strong> the next screen is for you. You will review the test release before entering any information.</p>
+            </div>
+            <button className="primary-button" type="button" onClick={() => show("signer")}>I am the signer</button>
+          </section>
+        ) : screen === "signer" ? (
+          <section className="panel" aria-labelledby="signer-heading">
+            <p className="eyebrow">Signer review</p>
+            <h1 id="signer-heading">Review before you agree</h1>
+            <p className="lede">Check who is collecting this release, what project it concerns, and every word of the test agreement.</p>
+
+            <dl className="summary-grid">
+              <div><dt>Production / producer</dt><dd>{setup.productionName}</dd></div>
+              <div><dt>Collected by</dt><dd>{setup.signatureCollector || setup.productionName}</dd></div>
+              <div><dt>Production email</dt><dd>{setup.productionEmail}</dd></div>
+              <div><dt>Project</dt><dd>{setup.projectTitle}</dd></div>
+            </dl>
+
+            <div className="release-copy signer-release" aria-labelledby="signer-release-heading">
+              <div>
+                <p className="field-label" id="signer-release-heading">Complete test release</p>
+                <span className="locked-label">Not a legal agreement</span>
+              </div>
+              <pre>{SYNTHETIC_RELEASE_TEXT}</pre>
+            </div>
+
+            <form onSubmit={completeSignerReview} noValidate autoComplete="off">
+              <Field label="Your full name" id="signerName" required error={signerErrors.signerName}>
+                <input id="signerName" name="sealproofSignerName" autoComplete="name" value={signer.signerName} onChange={(event) => updateSigner("signerName", event.target.value)} aria-describedby={signerErrors.signerName ? "signerName-error" : undefined} />
+              </Field>
+              <Field label="Your email" hint="This is where your completed copy will eventually be sent." id="signerEmail" required error={signerErrors.signerEmail}>
+                <input id="signerEmail" name="sealproofSignerEmail" type="email" inputMode="email" autoComplete="email" value={signer.signerEmail} onChange={(event) => updateSigner("signerEmail", event.target.value)} aria-describedby={signerErrors.signerEmail ? "signerEmail-error" : "signerEmail-hint"} />
+              </Field>
+              <Field label="Agreement date" hint="Confirm or correct the date production entered." id="signedDate" required error={signerErrors.signedDate}>
+                <input id="signedDate" name="sealproofSignedDate" type="date" value={signer.signedDate} onChange={(event) => updateSigner("signedDate", event.target.value)} aria-describedby={signerErrors.signedDate ? "signedDate-error" : "signedDate-hint"} />
+              </Field>
+              <div className="consent-field">
+                <label htmlFor="agreed">
+                  <input id="agreed" name="sealproofAgreement" type="checkbox" checked={signer.agreed} onChange={(event) => updateSigner("agreed", event.target.checked)} aria-describedby={signerErrors.agreed ? "agreed-error" : undefined} />
+                  <span>I have read and agree to the complete test release shown above.</span>
+                </label>
+                {signerErrors.agreed && <p className="field-error" id="agreed-error" role="alert">{signerErrors.agreed}</p>}
+              </div>
+              <button className="primary-button" type="submit">Continue</button>
+            </form>
+          </section>
+        ) : (
+          <section className="panel" aria-labelledby="complete-heading">
+            <p className="eyebrow">Signer review complete</p>
+            <h1 id="complete-heading">Your test details were accepted locally.</h1>
+            <p className="lede">Nothing was uploaded, stored, emailed, signed, or sealed. Your information exists only in this open browser page.</p>
+            <div className="handoff-card">
+              <p><strong>Next build:</strong> photo capture and a drawn vector signature.</p>
+              <p>Those inputs will be added to a new final PDF for an exact review before sealing.</p>
+            </div>
+            <button className="secondary-button" type="button" onClick={clearLocalTest}>End test and clear inputs</button>
           </section>
         )}
       </main>

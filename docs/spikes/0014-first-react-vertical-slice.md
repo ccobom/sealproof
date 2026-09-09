@@ -47,7 +47,7 @@ On September 9, 2026:
 ## Remaining gates
 
 - Run the interface manually in current desktop and mobile browsers.
-- Add signer handoff, signer identity fields, photo capture, and vector signature in separate reviewed slices.
+- Signer handoff and identity review subsequently passed their automated local gate in `docs/spikes/0015-signer-handoff-and-review.md`; photo capture and vector signature remain separate reviewed slices.
 - Replace synthetic text only after reviewed release and privacy language is supplied and approved.
 - Do not connect the local multipart adapter to a public Worker; its Free CPU gate failed in spike 0013.
 - Define and test abuse prevention before any finalization or email endpoint becomes public.

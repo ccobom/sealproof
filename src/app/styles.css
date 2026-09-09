@@ -56,6 +56,19 @@ input:focus { outline: 3px solid rgba(35, 106, 74, .23); border-color: #236a4a; 
 .pdf-preview { width: 100%; min-height: 650px; border: 1px solid #aeb7b0; border-radius: 8px; background: #e7e9e7; }
 .preview-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
 .next-note { margin: 32px 0 0; padding: 16px; border-left: 4px solid #d7bd55; background: #fff8dc; }
+.handoff-panel { text-align: center; }
+.handoff-panel h1 { margin-inline: auto; }
+.handoff-card { max-width: 650px; margin: 30px auto; padding: 20px 24px; border: 2px solid #236a4a; border-radius: 10px; background: #f0f8f3; text-align: left; }
+.handoff-card p { margin: 0; line-height: 1.55; }
+.handoff-card p + p { margin-top: 12px; }
+.summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; overflow: hidden; margin: 30px 0; padding: 1px; border-radius: 10px; background: #c8cec9; }
+.summary-grid div { min-width: 0; padding: 16px; background: #f8f7f2; }
+.summary-grid dt { color: #657169; font-size: .76rem; font-weight: 750; text-transform: uppercase; letter-spacing: .05em; }
+.summary-grid dd { overflow-wrap: anywhere; margin: 6px 0 0; font-weight: 650; }
+.signer-release { max-width: 680px; }
+.consent-field { margin: 32px 0; padding: 18px; border: 1px solid #98a49c; border-radius: 8px; }
+.consent-field label { display: flex; gap: 12px; align-items: flex-start; font-weight: 700; line-height: 1.5; cursor: pointer; }
+.consent-field input { flex: 0 0 auto; width: 20px; height: 20px; margin: 2px 0 0; accent-color: #236a4a; }
 
 @media (max-width: 640px) {
   .progress { grid-template-columns: repeat(2, 1fr); }
@@ -64,4 +77,5 @@ input:focus { outline: 3px solid rgba(35, 106, 74, .23); border-color: #236a4a; 
   .locked-label { display: block; margin-top: 4px; }
   .pdf-preview { min-height: 480px; }
   .preview-actions > * { width: 100%; }
+  .summary-grid { grid-template-columns: 1fr; }
 }
