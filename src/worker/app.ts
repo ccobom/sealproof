@@ -6,6 +6,8 @@ import {
   handleTicketFinalizationRequest,
   type TicketFinalizationEnvironment,
 } from "../http/ticket-finalization-route";
+import { handleReleaseStatusRequest } from "../http/release-status-route";
+import { handleCloseoutReleaseRequest } from "../http/closeout-release-route";
 
 const PRIVATE_RESPONSE_HEADERS = {
   "cache-control": "private, no-store, max-age=0",
@@ -37,6 +39,12 @@ export function createSealProofWorker(dependencies: SealProofWorkerDependencies 
       }
       if (path === "/api/releases/finalize") {
         return handleTicketFinalizationRequest(request, environment, now());
+      }
+      if (/^\/api\/releases\/[A-Za-z0-9_-]{16,128}\/status$/.test(path)) {
+        return handleReleaseStatusRequest(request, environment, now());
+      }
+      if (/^\/api\/releases\/[A-Za-z0-9_-]{16,128}$/.test(path)) {
+        return handleCloseoutReleaseRequest(request, environment, now());
       }
       if (path.startsWith("/api/")) {
         return Response.json({ error: "NOT_FOUND" }, {

@@ -1,7 +1,6 @@
 import { env } from "cloudflare:workers";
 import { PDFDocument } from "pdf-lib";
 import { describe, expect, it, vi } from "vitest";
-import { cleanupRelease } from "../../src/cleanup/release-cleanup";
 import { sha256Hex } from "../../src/document/hash";
 import {
   requestFinalizationAdmission,
@@ -72,13 +71,26 @@ describe("production-shaped local Worker", () => {
     const storedBytes = new Uint8Array(await object!.arrayBuffer());
     expect(new TextDecoder().decode(storedBytes.subarray(0, 5))).not.toBe("%PDF-");
 
-    await expect(cleanupRelease(
-      env.TEST_DB,
-      env.TEST_BUCKET,
-      result.transactionId,
-      "production_closeout",
-      currentTime,
-    )).resolves.toMatchObject({ outcome: "completed" });
+    const status = await browserFetcher(`/api/releases/${result.transactionId}/status`, {
+      headers: { authorization: `Bearer ${result.statusCapability}` },
+    });
+    expect(status.status).toBe(200);
+    expect(await status.json()).toMatchObject({
+      transactionId: result.transactionId,
+      releaseState: "SEALED_AWAITING_DELIVERY",
+    });
+
+    const closeout = await browserFetcher(`/api/releases/${result.transactionId}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${result.downloadCapability}` },
+    });
+    expect(closeout.status).toBe(200);
+    expect(await env.TEST_BUCKET.head(stored!.r2_object_key)).toBeNull();
+
+    const statusAfterCloseout = await browserFetcher(`/api/releases/${result.transactionId}/status`, {
+      headers: { authorization: `Bearer ${result.statusCapability}` },
+    });
+    expect(statusAfterCloseout.status).toBe(404);
   });
 
   it("fails closed for unknown API paths without invoking assets", async () => {
