@@ -1,9 +1,11 @@
+import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  root: "src/browser-spike",
+  root: "src/app",
+  plugins: [react()],
   build: {
-    outDir: "../../dist/browser-spike",
+    outDir: "../../dist/app",
     emptyOutDir: true,
   },
 });

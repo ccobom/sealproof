@@ -2,7 +2,7 @@
 
 This directory contains the intentionally built, auditable version of SEALPROOF.
 
-The current runnable artifact is the [Day 3 walking skeleton](prototypes/day3-walking-skeleton/index.html). It is an interaction prototype, not the production application. Its simulated behavior is labeled in the interface and documented in `make-and-do/03-PATH.md`.
+The first deliberately built interactive slice now lives in `src/app/`: typed production setup, local browser PDF generation, and exact-byte preview. The [Day 3 walking skeleton](prototypes/day3-walking-skeleton/index.html) remains a frozen behavioral reference rather than production code.
 
 ## Working rules
 

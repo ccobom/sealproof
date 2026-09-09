@@ -3,18 +3,25 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:browser-spike": "vite build",
+    "dev": "vite",
+    "build": "vite build",
+    "build:browser-spike": "vite build --config vite.browser-spike.config.ts",
     "types": "wrangler types",
-    "check": "npm run types && tsc --noEmit && tsc --noEmit --project tests/tsconfig.json && tsc --noEmit --project src/browser-spike/tsconfig.json",
+    "check": "npm run types && tsc --noEmit && tsc --noEmit --project tests/tsconfig.json && tsc --noEmit --project src/app/tsconfig.json && tsc --noEmit --project src/browser-spike/tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "svix": "^2.3.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.1.6",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^5.2.0",
     "typescript": "^6.0.3",
     "vite": "^7.1.5",
     "vitest": "^4.1.0",
