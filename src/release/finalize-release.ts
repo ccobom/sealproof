@@ -1,6 +1,6 @@
 import type { TemporaryEmailAddresses } from "../crypto/temporary-pii";
 import { bytesToHex, sha256Bytes } from "../document/hash";
-import { validatePdfUpload, type PdfContractFailure } from "../document/pdf-contract";
+import { validatePdfUpload, type PdfUploadFailure } from "../document/pdf-contract";
 import {
   createReleaseState,
   markReleaseSealed,
@@ -33,7 +33,7 @@ export type FinalizeReleaseResult =
       statusCapability: string;
       downloadCapability: string;
     }
-  | { outcome: "rejected"; reason: PdfContractFailure | "HASH_MISMATCH" }
+  | { outcome: "rejected"; reason: PdfUploadFailure | "HASH_MISMATCH" }
   | { outcome: "storage_failed_cleaned"; transactionId: string };
 
 export type ResumeFinalizationResult =

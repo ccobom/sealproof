@@ -14,9 +14,11 @@ export type PdfContractResult =
   | { valid: true; pageCount: number }
   | { valid: false; reason: PdfContractFailure };
 
+export type PdfUploadFailure = "INVALID_PDF" | "PDF_TOO_LARGE";
+
 export type PdfUploadResult =
   | { valid: true }
-  | { valid: false; reason: "INVALID_PDF" | "PDF_TOO_LARGE" };
+  | { valid: false; reason: PdfUploadFailure };
 
 // This is the deliberately small Worker trust boundary. It does not claim to
 // prove that the bytes are a structurally valid PDF; the remote CPU spike
