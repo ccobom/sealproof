@@ -9,7 +9,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "pdf-lib": "^1.17.1"
+    "pdf-lib": "^1.17.1",
+    "svix": "^2.3.0"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.1.6",
