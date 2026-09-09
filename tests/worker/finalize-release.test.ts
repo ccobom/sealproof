@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { PDFDocument } from "pdf-lib";
 import { beforeAll, describe, expect, it } from "vitest";
 import { temporaryAccessExists } from "../../src/cleanup/release-cleanup";
+import { decryptTemporaryPdf, encryptTemporaryPdf } from "../../src/crypto/temporary-pdf";
 import { bytesToHex, sha256Bytes, sha256Hex } from "../../src/document/hash";
 import {
   finalizeRelease,
@@ -21,6 +22,24 @@ beforeAll(async () => {
 
 function encryptionKey(): Uint8Array {
   return Uint8Array.from({ length: 32 }, (_, index) => index);
+}
+
+async function encryptedState(transactionId: string) {
+  const documentHash = await sha256Hex(PDF_BYTES);
+  const encrypted = await encryptTemporaryPdf(
+    PDF_BYTES, transactionId, documentHash, "kek-v1", encryptionKey(),
+  );
+  const ciphertextDigest = await sha256Bytes(encrypted.ciphertext);
+  return {
+    documentHash,
+    ciphertext: encrypted.ciphertext,
+    ciphertextDigest,
+    encryptedPdf: {
+      metadata: encrypted.metadata,
+      ciphertextSize: encrypted.ciphertext.byteLength,
+      ciphertextHash: bytesToHex(ciphertextDigest),
+    },
+  };
 }
 
 async function finalizationInput(
@@ -53,7 +72,10 @@ describe("release finalization coordinator", () => {
 
     const stored = await env.TEST_DB.prepare(`
       SELECT ar.release_state, ar.document_hash, tr.document_size,
-        tr.r2_object_key, tr.status_capability_hash, tr.download_capability_hash
+        tr.r2_object_key, tr.status_capability_hash, tr.download_capability_hash,
+        tr.storage_format, tr.stored_ciphertext_size, tr.stored_ciphertext_hash,
+        tr.pdf_envelope_version, tr.pdf_key_version, tr.pdf_document_iv,
+        tr.pdf_wrapped_key_iv, tr.pdf_wrapped_data_key
       FROM audit_releases ar
       JOIN temporary_releases tr ON tr.transaction_id = ar.transaction_id
       WHERE ar.transaction_id = ?
@@ -62,6 +84,8 @@ describe("release finalization coordinator", () => {
       release_state: "SEALED_AWAITING_DELIVERY",
       document_hash: result.documentHash,
       document_size: PDF_BYTES.byteLength,
+      storage_format: "ENCRYPTED_V1",
+      stored_ciphertext_size: PDF_BYTES.byteLength + 16,
     });
     expect(stored?.status_capability_hash).toBe(await sha256Hex(
       new TextEncoder().encode(result.statusCapability),
@@ -71,9 +95,22 @@ describe("release finalization coordinator", () => {
     ));
 
     const object = await env.TEST_BUCKET.head(String(stored?.r2_object_key));
-    expect(object?.size).toBe(PDF_BYTES.byteLength);
+    expect(object?.size).toBe(PDF_BYTES.byteLength + 16);
     expect(object?.checksums.sha256).toBeDefined();
-    expect(bytesToHex(new Uint8Array(object!.checksums.sha256!))).toBe(result.documentHash);
+    expect(bytesToHex(new Uint8Array(object!.checksums.sha256!))).toBe(stored?.stored_ciphertext_hash);
+    const body = await env.TEST_BUCKET.get(String(stored?.r2_object_key));
+    const storedBytes = new Uint8Array(await body!.arrayBuffer());
+    expect(new TextDecoder().decode(storedBytes.subarray(0, 5))).not.toBe("%PDF-");
+    await expect(decryptTemporaryPdf(storedBytes, {
+      version: Number(stored?.pdf_envelope_version) as 1,
+      keyVersion: String(stored?.pdf_key_version),
+      documentIv: String(stored?.pdf_document_iv),
+      wrappedKeyIv: String(stored?.pdf_wrapped_key_iv),
+      wrappedKey: String(stored?.pdf_wrapped_data_key),
+      plaintextBytes: Number(stored?.document_size),
+    }, result.transactionId, result.documentHash, {
+      "kek-v1": encryptionKey(),
+    })).resolves.toEqual(PDF_BYTES);
   });
 
   it("rejects invalid, oversized, and hash-mismatched input before durable state", async () => {
@@ -146,13 +183,13 @@ describe("release finalization coordinator", () => {
 
   it("recovers an interrupted seal from R2 checksum metadata", async () => {
     const transactionId = "transaction_finalize_resume";
-    const objectKey = `temporary/${transactionId}.pdf`;
+    const objectKey = `temporary/${transactionId}.pdf.enc`;
     const statusCapability = "synthetic-status-capability";
     const downloadCapability = "synthetic-download-capability";
     const statusHash = await sha256Hex(new TextEncoder().encode(statusCapability));
     const downloadHash = await sha256Hex(new TextEncoder().encode(downloadCapability));
-    const digest = await sha256Bytes(PDF_BYTES);
-    const documentHash = bytesToHex(digest);
+    const encrypted = await encryptedState(transactionId);
+    const documentHash = encrypted.documentHash;
     await createReleaseState(env.TEST_DB, {
       transactionId,
       documentHash,
@@ -168,9 +205,10 @@ describe("release finalization coordinator", () => {
       },
       keyVersion: "kek-v1",
       keyEncryptionKey: encryptionKey(),
+      encryptedPdf: encrypted.encryptedPdf,
     });
-    await env.TEST_BUCKET.put(objectKey, PDF_BYTES, {
-      sha256: digest.buffer as ArrayBuffer,
+    await env.TEST_BUCKET.put(objectKey, encrypted.ciphertext, {
+      sha256: encrypted.ciphertextDigest.buffer as ArrayBuffer,
     });
 
     expect(await temporaryAccessExists(
@@ -200,7 +238,8 @@ describe("release finalization coordinator", () => {
   it("never seals a recovery object with missing or mismatched integrity metadata", async () => {
     for (const suffix of ["missing", "mismatch"] as const) {
       const transactionId = `transaction_finalize_${suffix}`;
-      const objectKey = `temporary/${transactionId}.pdf`;
+      const objectKey = `temporary/${transactionId}.pdf.enc`;
+      const encrypted = await encryptedState(transactionId);
       await createReleaseState(env.TEST_DB, {
         transactionId,
         documentHash: await sha256Hex(PDF_BYTES),
@@ -216,6 +255,7 @@ describe("release finalization coordinator", () => {
         },
         keyVersion: "kek-v1",
         keyEncryptionKey: encryptionKey(),
+        encryptedPdf: encrypted.encryptedPdf,
       });
       if (suffix === "mismatch") {
         await env.TEST_BUCKET.put(objectKey, PDF_BYTES);

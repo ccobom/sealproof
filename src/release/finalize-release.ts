@@ -1,6 +1,7 @@
 import type { TemporaryEmailAddresses } from "../crypto/temporary-pii";
 import { bytesToHex, sha256Bytes } from "../document/hash";
 import { validatePdfUpload, type PdfUploadFailure } from "../document/pdf-contract";
+import { encryptTemporaryPdf } from "../crypto/temporary-pdf";
 import {
   createReleaseState,
   markReleaseSealed,
@@ -47,6 +48,9 @@ interface FinalizingRow {
   r2_object_key: string;
   cleanup_started_at: number | null;
   expires_at: number;
+  storage_format: string;
+  stored_ciphertext_size: number;
+  stored_ciphertext_hash: string;
 }
 
 function randomCapability(): string {
@@ -62,7 +66,7 @@ async function createCredentials(): Promise<FinalizationCredentials> {
   const downloadCapability = randomCapability();
   return {
     transactionId,
-    r2ObjectKey: `temporary/${transactionId}.pdf`,
+    r2ObjectKey: `temporary/${transactionId}.pdf.enc`,
     statusCapability,
     statusCapabilityHash: bytesToHex(await sha256Bytes(
       new TextEncoder().encode(statusCapability),
@@ -126,6 +130,15 @@ export async function finalizeRelease(
     throw new Error("Worker clock returned an invalid timestamp");
   }
   const credentials = await createCredentials();
+  const encryptedPdf = await encryptTemporaryPdf(
+    pdfBytes,
+    credentials.transactionId,
+    documentHash,
+    input.keyVersion,
+    input.keyEncryptionKey,
+  );
+  const ciphertextDigest = await sha256Bytes(encryptedPdf.ciphertext);
+  const ciphertextHash = bytesToHex(ciphertextDigest);
   const created = await createReleaseState(db, {
     transactionId: credentials.transactionId,
     documentHash,
@@ -138,17 +151,22 @@ export async function finalizeRelease(
     emailAddresses: input.emailAddresses,
     keyVersion: input.keyVersion,
     keyEncryptionKey: input.keyEncryptionKey,
+    encryptedPdf: {
+      metadata: encryptedPdf.metadata,
+      ciphertextSize: encryptedPdf.ciphertext.byteLength,
+      ciphertextHash,
+    },
   });
 
   let stored: R2Object | null;
   try {
-    stored = await bucket.put(credentials.r2ObjectKey, pdfBytes, {
+    stored = await bucket.put(credentials.r2ObjectKey, encryptedPdf.ciphertext, {
       onlyIf: { etagDoesNotMatch: "*" },
-      sha256: digest.buffer as ArrayBuffer,
-      httpMetadata: { contentType: "application/pdf" },
+      sha256: ciphertextDigest.buffer as ArrayBuffer,
+      httpMetadata: { contentType: "application/octet-stream" },
       customMetadata: {
         transactionId: credentials.transactionId,
-        documentHash,
+        storageFormat: "ENCRYPTED_V1",
       },
     });
   } catch {
@@ -168,7 +186,7 @@ export async function finalizeRelease(
     await discardFinalizingState(db, credentials.transactionId);
     return { outcome: "storage_failed_cleaned", transactionId: credentials.transactionId };
   }
-  if (stored.size !== pdfBytes.byteLength || !checksumMatches(stored, documentHash)) {
+  if (stored.size !== encryptedPdf.ciphertext.byteLength || !checksumMatches(stored, ciphertextHash)) {
     try {
       await bucket.delete(credentials.r2ObjectKey);
       if (await bucket.head(credentials.r2ObjectKey) === null) {
@@ -206,7 +224,8 @@ export async function resumeReleaseFinalization(
 ): Promise<ResumeFinalizationResult> {
   const row = await db.prepare(`
     SELECT ar.release_state, ar.document_hash, tr.document_size, tr.r2_object_key,
-      tr.cleanup_started_at, tr.expires_at
+      tr.cleanup_started_at, tr.expires_at, tr.storage_format,
+      tr.stored_ciphertext_size, tr.stored_ciphertext_hash
     FROM audit_releases ar
     JOIN temporary_releases tr ON tr.transaction_id = ar.transaction_id
     WHERE ar.transaction_id = ?
@@ -218,13 +237,13 @@ export async function resumeReleaseFinalization(
   if (row.release_state === "SEALED_AWAITING_DELIVERY") {
     return { outcome: "already_sealed", transactionId };
   }
-  if (row.release_state !== "FINALIZING") {
+  if (row.release_state !== "FINALIZING" || row.storage_format !== "ENCRYPTED_V1") {
     return { outcome: "not_resumable", transactionId };
   }
 
   const object = await bucket.head(row.r2_object_key);
   if (object === null) return { outcome: "waiting_for_pdf", transactionId };
-  if (object.size !== row.document_size || !checksumMatches(object, row.document_hash)) {
+  if (object.size !== row.stored_ciphertext_size || !checksumMatches(object, row.stored_ciphertext_hash)) {
     return { outcome: "integrity_failure", transactionId };
   }
 

@@ -5,6 +5,13 @@ import {
   type TemporaryEmailAddresses,
 } from "../crypto/temporary-pii";
 import { calculateExpiry } from "../delivery/state";
+import type { EncryptedTemporaryPdfMetadata } from "../crypto/temporary-pdf";
+
+export interface StoredEncryptedPdf {
+  metadata: EncryptedTemporaryPdfMetadata;
+  ciphertextSize: number;
+  ciphertextHash: string;
+}
 
 export interface CreateReleaseStateInput {
   transactionId: string;
@@ -18,6 +25,7 @@ export interface CreateReleaseStateInput {
   emailAddresses: TemporaryEmailAddresses;
   keyVersion: string;
   keyEncryptionKey: Uint8Array;
+  encryptedPdf: StoredEncryptedPdf;
 }
 
 export interface CreatedReleaseState {
@@ -53,10 +61,17 @@ function validateInput(input: CreateReleaseStateInput): void {
   requireHash(input.documentHash, "Document hash");
   requireHash(input.statusCapabilityHash, "Status capability hash");
   requireHash(input.downloadCapabilityHash, "Download capability hash");
+  requireHash(input.encryptedPdf.ciphertextHash, "Ciphertext hash");
   requireLength(input.workflowVersion, "Workflow version", 1, 64);
   requireLength(input.r2ObjectKey, "R2 object key", 1, 1_024);
   if (!Number.isSafeInteger(input.documentSize) || input.documentSize < 1) {
     throw new Error("Document size must be a positive safe integer");
+  }
+  if (input.encryptedPdf.metadata.plaintextBytes !== input.documentSize) {
+    throw new Error("PDF envelope plaintext size must match document size");
+  }
+  if (!Number.isSafeInteger(input.encryptedPdf.ciphertextSize) || input.encryptedPdf.ciphertextSize < 1) {
+    throw new Error("Ciphertext size must be a positive safe integer");
   }
 }
 
@@ -89,8 +104,10 @@ export async function createReleaseState(
       INSERT INTO temporary_releases (
         transaction_id, envelope_version, key_version, envelope_iv,
         email_ciphertext, wrapped_key_iv, wrapped_data_key, document_size, r2_object_key,
-        status_capability_hash, download_capability_hash, expires_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        status_capability_hash, download_capability_hash, expires_at,
+        storage_format, pdf_envelope_version, pdf_key_version, pdf_document_iv,
+        pdf_wrapped_key_iv, pdf_wrapped_data_key, stored_ciphertext_size, stored_ciphertext_hash
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ENCRYPTED_V1', ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       input.transactionId,
       encrypted.version,
@@ -104,6 +121,13 @@ export async function createReleaseState(
       input.statusCapabilityHash,
       input.downloadCapabilityHash,
       expiresAt,
+      input.encryptedPdf.metadata.version,
+      input.encryptedPdf.metadata.keyVersion,
+      input.encryptedPdf.metadata.documentIv,
+      input.encryptedPdf.metadata.wrappedKeyIv,
+      input.encryptedPdf.metadata.wrappedKey,
+      input.encryptedPdf.ciphertextSize,
+      input.encryptedPdf.ciphertextHash,
     ),
     db.prepare(`
       INSERT INTO delivery_attempts (

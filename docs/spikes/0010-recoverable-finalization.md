@@ -66,3 +66,7 @@ On September 8, 2026:
 ## Conclusion
 
 The local finalization coordinator passes. The code has an explicit durable `FINALIZING` state, uses Worker-owned time and credentials, relies on R2 checksum validation for the exact uploaded bytes, and cannot return a sealed result unless the R2 object and active D1 state agree.
+
+## Encryption amendment
+
+The original spike stored plaintext PDF bytes and used the plaintext document hash as the R2 checksum. That behavior was superseded on September 9, 2026 by application-level PDF encryption in `docs/spikes/0019-local-temporary-pdf-encryption.md` and the integrated coordinator evidence in `docs/spikes/0020-encrypted-r2-finalization.md`. R2 now receives ciphertext only; the plaintext document hash and ciphertext storage checksum occupy deliberately separate integrity domains.

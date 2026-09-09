@@ -38,6 +38,18 @@ async function input(
     emailAddresses: ADDRESSES,
     keyVersion: "kek-v1",
     keyEncryptionKey: key(),
+    encryptedPdf: {
+      metadata: {
+        version: 1,
+        keyVersion: "kek-v1",
+        documentIv: "AAAAAAAAAAAAAAAA",
+        wrappedKeyIv: "AQEBAQEBAQEBAQEB",
+        wrappedKey: "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC",
+        plaintextBytes: 4,
+      },
+      ciphertextSize: 20,
+      ciphertextHash: "b".repeat(64),
+    },
     ...overrides,
   };
 }
@@ -67,6 +79,8 @@ describe("encrypted release-state creation", () => {
     expect(stored).toMatchObject({
       envelope_version: 1,
       key_version: "kek-v1",
+      storage_format: "ENCRYPTED_V1",
+      pdf_envelope_version: 1,
       expires_at: EXPIRES_AT,
       cleanup_started_at: null,
     });

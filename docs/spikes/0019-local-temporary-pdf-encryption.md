@@ -24,5 +24,5 @@ On September 9, 2026, all four TypeScript checks passed, all 102 tests across 21
 
 ## Remaining gates
 
-- Revise the D1 schema and finalization coordinator so R2 receives ciphertext only.
+- D1 and R2 integration passed separately in `docs/spikes/0020-encrypted-r2-finalization.md`.
 - Add authorized transient decryption paths for download and delivery separately.

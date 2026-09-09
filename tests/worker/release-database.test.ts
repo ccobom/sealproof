@@ -25,6 +25,18 @@ async function createRelease(transactionId: string): Promise<void> {
     },
     keyVersion: "v1",
     keyEncryptionKey: new Uint8Array(32),
+    encryptedPdf: {
+      metadata: {
+        version: 1,
+        keyVersion: "v1",
+        documentIv: "AAAAAAAAAAAAAAAA",
+        wrappedKeyIv: "AQEBAQEBAQEBAQEB",
+        wrappedKey: "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC",
+        plaintextBytes: 4,
+      },
+      ciphertextSize: 20,
+      ciphertextHash: "b".repeat(64),
+    },
   });
 }
 
