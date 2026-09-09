@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { sha256Hex } from "../../src/document/hash";
+import { createReleaseState } from "../../src/release/release-state";
 
 const FINALIZED_AT = 1_800_000_000_000;
 const EXPIRES_AT = FINALIZED_AT + 7_200_000;
@@ -9,38 +10,21 @@ const HASH = "a".repeat(64);
 async function createRelease(transactionId: string): Promise<void> {
   const statusHash = await sha256Hex(new TextEncoder().encode(`${transactionId}:status`));
   const downloadHash = await sha256Hex(new TextEncoder().encode(`${transactionId}:download`));
-  await env.TEST_DB.batch([
-    env.TEST_DB.prepare(`
-      INSERT INTO audit_releases (
-        transaction_id, document_hash, hash_algorithm, workflow_version,
-        finalized_at, release_state
-      ) VALUES (?, ?, 'SHA-256', 'test-v1', ?, 'SEALED_AWAITING_DELIVERY')
-    `).bind(transactionId, HASH, FINALIZED_AT),
-    env.TEST_DB.prepare(`
-      INSERT INTO temporary_releases (
-        transaction_id, envelope_version, key_version, envelope_iv,
-        email_ciphertext, wrapped_key_iv, wrapped_data_key, r2_object_key,
-        status_capability_hash, download_capability_hash, expires_at
-      ) VALUES (?, 1, 'v1', 'synthetic-iv', 'synthetic-ciphertext',
-        'synthetic-key-iv', 'synthetic-wrapped-key', ?, ?, ?, ?)
-    `).bind(
-      transactionId,
-      `synthetic/${transactionId}.pdf`,
-      statusHash,
-      downloadHash,
-      EXPIRES_AT,
-    ),
-    env.TEST_DB.prepare(`
-      INSERT INTO delivery_attempts (
-        transaction_id, recipient_role, attempt_number, delivery_state, created_at
-      ) VALUES (?, 'PRODUCTION', 1, 'PENDING_SUBMISSION', ?)
-    `).bind(transactionId, FINALIZED_AT),
-    env.TEST_DB.prepare(`
-      INSERT INTO delivery_attempts (
-        transaction_id, recipient_role, attempt_number, delivery_state, created_at
-      ) VALUES (?, 'SIGNER', 1, 'PENDING_SUBMISSION', ?)
-    `).bind(transactionId, FINALIZED_AT),
-  ]);
+  await createReleaseState(env.TEST_DB, {
+    transactionId,
+    documentHash: HASH,
+    workflowVersion: "test-v1",
+    finalizedAt: FINALIZED_AT,
+    r2ObjectKey: `synthetic/${transactionId}.pdf`,
+    statusCapabilityHash: statusHash,
+    downloadCapabilityHash: downloadHash,
+    emailAddresses: {
+      productionEmail: "producer@example.invalid",
+      signerEmail: "signer@example.invalid",
+    },
+    keyVersion: "v1",
+    keyEncryptionKey: new Uint8Array(32),
+  });
 }
 
 describe("release database migration", () => {

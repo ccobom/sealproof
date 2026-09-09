@@ -45,4 +45,4 @@ The tests demonstrated:
 - authenticated failure with the wrong key-encryption key;
 - explicit failure when the required key version was unavailable.
 
-No external resource, secret, real address, or network request was used. The cryptographic construction passes this isolated gate. Integrating the envelope with D1 and exercising key rotation across stored rows remain part of the database validation gate.
+No external resource, secret, real address, or network request was used. The cryptographic construction passes this isolated gate. D1 integration and key rotation across stored rows subsequently passed in `docs/spikes/0009-encrypted-release-state.md`.

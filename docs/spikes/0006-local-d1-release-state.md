@@ -56,3 +56,11 @@ The duplicate-safe state-application gate now passes. This result does not yet p
 ## Conclusion
 
 The schema, pure state reducer, and atomic duplicate-safe application path pass their local gates. No remote D1 resource is justified yet. Continue locally until the signature-verification and cleanup behaviors have executable evidence.
+
+## Subsequent resolution
+
+The remaining gates listed above later passed locally:
+
+- signature verification: `docs/spikes/0007-resend-webhook-verification.md`;
+- idempotent cleanup, R2/D1 recovery, and audit expiry: `docs/spikes/0008-local-cleanup-recovery.md`;
+- encrypted-envelope D1 integration and key-version loading: `docs/spikes/0009-encrypted-release-state.md`.
