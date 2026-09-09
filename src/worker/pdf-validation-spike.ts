@@ -40,6 +40,18 @@ export default {
     }
 
     const bytes = new Uint8Array(await request.arrayBuffer());
+    if (url.searchParams.get("operation") === "hash-only") {
+      if (bytes.byteLength > FINAL_PDF_CONTRACT.maximumBytes) {
+        return Response.json({ error: "PDF_TOO_LARGE" }, { status: 413 });
+      }
+      if (bytes.byteLength < 5 || new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-") {
+        return Response.json({ error: "INVALID_PDF_HEADER" }, { status: 400 });
+      }
+      return Response.json({
+        byteLength: bytes.byteLength,
+        sha256: await sha256Hex(bytes),
+      });
+    }
     const validation = await validateFinalPdf(bytes);
     if (!validation.valid) {
       const status = validation.reason === "PDF_TOO_LARGE" ? 413 : 400;

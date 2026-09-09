@@ -75,6 +75,26 @@ Before changing that contract, isolate remote SHA-256 cost at the same byte boun
 
 The fixed 3,000,000-byte Worker boundary remains mandatory in every option.
 
+### Hash-only follow-up
+
+On September 9, 2026, temporary version `e89dfbfc-96b4-4499-a12c-7d71940bbb8b` added an authenticated hash-only branch to the same isolated Worker. It received the same 2,013,402-byte synthetic input and performed request-body reading plus SHA-256 without `pdf-lib` parsing.
+
+After five warmups, twenty measured requests reported CPU times of:
+
+```text
+4, 4, 4, 12, 4, 4, 3, 4, 4, 4, 5, 11, 5, 4, 4, 4, 4, 5, 5, 4 ms
+```
+
+- mean: 4.9 ms;
+- median: 4 ms;
+- minimum: 3 ms;
+- maximum: 12 ms; and
+- invocations at or below 10 ms: 18 of 20.
+
+All requests completed successfully. This is strong evidence that byte-size enforcement and exact-byte hashing are viable on the intended Free plan, with substantially more typical CPU headroom than full parsing. It is not a guarantee that every invocation will remain at or below 10 ms, so production monitoring and failure-safe behavior remain required.
+
+The temporary Worker and its replacement secret were deleted after measurement, and its former URL returned `404`.
+
 ## Conclusion
 
 The three-page, 3,000,000-byte product contract passes its local correctness and representative-size tests. Full `pdf-lib` validation does not reliably fit the intended Free-plan CPU budget at the large-input boundary, so its current placement in the Worker fails that architectural gate and requires an explicit follow-up decision.

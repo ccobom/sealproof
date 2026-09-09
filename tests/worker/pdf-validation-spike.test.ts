@@ -19,7 +19,27 @@ async function request(body: Uint8Array, token = TOKEN): Promise<Response> {
   );
 }
 
+async function hashOnlyRequest(body: Uint8Array): Promise<Response> {
+  return worker.fetch(
+    new Request("https://sealproof.invalid/spike/pdf-contract?operation=hash-only", {
+      method: "POST",
+      headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/pdf" },
+      body,
+    }),
+    { SPIKE_TRIGGER_TOKEN: TOKEN },
+  );
+}
+
 describe("remote PDF validation spike boundary", () => {
+  it("hashes authorized bytes without parsing the PDF", async () => {
+    const bytes = new TextEncoder().encode("%PDF-synthetic hash-only bytes");
+    const response = await hashOnlyRequest(bytes);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      byteLength: bytes.byteLength,
+      sha256: await sha256Hex(bytes),
+    });
+  });
   it("parses and hashes an authorized three-page PDF", async () => {
     const document = await PDFDocument.create();
     for (let page = 0; page < 3; page += 1) document.addPage();
