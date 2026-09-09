@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local": "npm run build && npm run local:migrate && wrangler dev --config wrangler.local.jsonc",
+    "local:migrate": "wrangler d1 migrations apply sealproof-local --local --config wrangler.local.jsonc",
     "build": "vite build",
     "build:browser-spike": "vite build --config vite.browser-spike.config.ts",
     "types": "wrangler types",

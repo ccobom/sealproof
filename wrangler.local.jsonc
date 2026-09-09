@@ -1,0 +1,40 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // LOCAL DEVELOPMENT ONLY. The entry point rejects every non-loopback host.
+  "name": "sealproof-local-only",
+  "main": "src/worker/local-app.ts",
+  "compatibility_date": "2026-09-09",
+  "workers_dev": false,
+  "dev": {
+    "ip": "localhost",
+    "port": 8787,
+    "local_protocol": "https"
+  },
+  "assets": {
+    "directory": "./dist/app",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "RELEASE_DB",
+      "database_name": "sealproof-local",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "RELEASE_DOCUMENTS",
+      "bucket_name": "sealproof-local-documents"
+    }
+  ],
+  "vars": {
+    "TURNSTILE_SECRET_KEY": "LOCAL_SYNTHETIC_ONLY",
+    "EXPECTED_HOSTNAME": "localhost",
+    "ACTIVE_WORKFLOW_VERSION": "local-workflow-v1",
+    "ACTIVE_KEY_VERSION": "local-pdf-kek-v1",
+    "KEY_ENCRYPTION_KEY_BASE64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+    "ACTIVE_TICKET_KEY_VERSION": "local-ticket-v1",
+    "TICKET_ENCRYPTION_KEY_BASE64": "Hx4dHBsaGRgXFhUUExIREA8ODQwLCgkIBwYFBAMCAQA="
+  }
+}
