@@ -53,3 +53,7 @@ This spike begins after the browser-generated PDF has already been placed in pri
 ## Conclusion
 
 The encrypted D1 release-state gate passes locally. The application’s normal release-creation path now stores real encrypted email envelopes rather than placeholders, supports active rows across key rotation, fails closed after cleanup or expiry, and leaves no partial D1 state when its transaction fails.
+
+## Subsequent resolution
+
+The recoverable R2-upload and D1-finalization coordinator subsequently passed in `docs/spikes/0010-recoverable-finalization.md`.

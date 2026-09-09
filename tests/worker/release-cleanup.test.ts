@@ -35,9 +35,9 @@ async function createRelease(suffix: string, expiresAt = EXPIRES_AT): Promise<Fi
     env.TEST_DB.prepare(`
       INSERT INTO temporary_releases (
         transaction_id, envelope_version, key_version, envelope_iv,
-        email_ciphertext, wrapped_key_iv, wrapped_data_key, r2_object_key,
+        email_ciphertext, wrapped_key_iv, wrapped_data_key, document_size, r2_object_key,
         status_capability_hash, download_capability_hash, expires_at
-      ) VALUES (?, 1, 'v1', 'iv', 'ciphertext', 'key-iv', 'wrapped-key', ?, ?, ?, ?)
+      ) VALUES (?, 1, 'v1', 'iv', 'ciphertext', 'key-iv', 'wrapped-key', 4, ?, ?, ?, ?)
     `).bind(transactionId, objectKey, statusHash, downloadHash, expiresAt),
     env.TEST_DB.prepare(`
       INSERT INTO delivery_attempts (

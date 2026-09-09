@@ -87,9 +87,10 @@ export async function applyVerifiedDeliveryEvent(
     INSERT OR IGNORE INTO processed_webhooks (
       svix_id, payload_hash, transaction_id, delivery_attempt_id, event_type, received_at
     )
-    SELECT ?, ?, transaction_id, id, ?, ?
-    FROM delivery_attempts
-    WHERE provider_message_id = ?
+    SELECT ?, ?, da.transaction_id, da.id, ?, ?
+    FROM delivery_attempts da
+    JOIN audit_releases ar ON ar.transaction_id = da.transaction_id
+    WHERE da.provider_message_id = ? AND ar.release_state != 'FINALIZING'
   `).bind(
     input.svixId,
     input.payloadHash,
@@ -107,6 +108,11 @@ export async function applyVerifiedDeliveryEvent(
         ELSE provider_event_at
       END
     WHERE provider_message_id = ?
+      AND EXISTS (
+        SELECT 1 FROM audit_releases ar
+        WHERE ar.transaction_id = delivery_attempts.transaction_id
+          AND ar.release_state != 'FINALIZING'
+      )
       AND EXISTS (
         SELECT 1 FROM processed_webhooks
         WHERE svix_id = ? AND payload_hash = ?

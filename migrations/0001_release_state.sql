@@ -69,6 +69,7 @@ CREATE TABLE temporary_releases (
   email_ciphertext TEXT NOT NULL,
   wrapped_key_iv TEXT NOT NULL,
   wrapped_data_key TEXT NOT NULL,
+  document_size INTEGER NOT NULL CHECK (document_size > 0),
   r2_object_key TEXT NOT NULL UNIQUE,
   status_capability_hash TEXT NOT NULL UNIQUE
     CHECK (length(status_capability_hash) = 64 AND status_capability_hash NOT GLOB '*[^0-9a-f]*'),

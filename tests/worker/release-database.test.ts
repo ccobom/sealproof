@@ -15,6 +15,7 @@ async function createRelease(transactionId: string): Promise<void> {
     documentHash: HASH,
     workflowVersion: "test-v1",
     finalizedAt: FINALIZED_AT,
+    documentSize: 4,
     r2ObjectKey: `synthetic/${transactionId}.pdf`,
     statusCapabilityHash: statusHash,
     downloadCapabilityHash: downloadHash,

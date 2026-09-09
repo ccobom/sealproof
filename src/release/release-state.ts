@@ -11,6 +11,7 @@ export interface CreateReleaseStateInput {
   documentHash: string;
   workflowVersion: string;
   finalizedAt: number;
+  documentSize: number;
   r2ObjectKey: string;
   statusCapabilityHash: string;
   downloadCapabilityHash: string;
@@ -54,6 +55,9 @@ function validateInput(input: CreateReleaseStateInput): void {
   requireHash(input.downloadCapabilityHash, "Download capability hash");
   requireLength(input.workflowVersion, "Workflow version", 1, 64);
   requireLength(input.r2ObjectKey, "R2 object key", 1, 1_024);
+  if (!Number.isSafeInteger(input.documentSize) || input.documentSize < 1) {
+    throw new Error("Document size must be a positive safe integer");
+  }
 }
 
 export async function createReleaseState(
@@ -74,7 +78,7 @@ export async function createReleaseState(
       INSERT INTO audit_releases (
         transaction_id, document_hash, hash_algorithm, workflow_version,
         finalized_at, release_state
-      ) VALUES (?, ?, 'SHA-256', ?, ?, 'SEALED_AWAITING_DELIVERY')
+      ) VALUES (?, ?, 'SHA-256', ?, ?, 'FINALIZING')
     `).bind(
       input.transactionId,
       input.documentHash,
@@ -84,9 +88,9 @@ export async function createReleaseState(
     db.prepare(`
       INSERT INTO temporary_releases (
         transaction_id, envelope_version, key_version, envelope_iv,
-        email_ciphertext, wrapped_key_iv, wrapped_data_key, r2_object_key,
+        email_ciphertext, wrapped_key_iv, wrapped_data_key, document_size, r2_object_key,
         status_capability_hash, download_capability_hash, expires_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       input.transactionId,
       encrypted.version,
@@ -95,6 +99,7 @@ export async function createReleaseState(
       encrypted.ciphertext,
       encrypted.wrappedKeyIv,
       encrypted.wrappedKey,
+      input.documentSize,
       input.r2ObjectKey,
       input.statusCapabilityHash,
       input.downloadCapabilityHash,
@@ -113,6 +118,22 @@ export async function createReleaseState(
   ]);
 
   return { transactionId: input.transactionId, expiresAt };
+}
+
+export async function markReleaseSealed(
+  db: D1Database,
+  transactionId: string,
+  now: number,
+): Promise<boolean> {
+  const result = await db.prepare(`
+    UPDATE audit_releases SET release_state = 'SEALED_AWAITING_DELIVERY'
+    WHERE transaction_id = ? AND release_state = 'FINALIZING'
+      AND EXISTS (
+        SELECT 1 FROM temporary_releases
+        WHERE transaction_id = ? AND cleanup_started_at IS NULL AND expires_at > ?
+      )
+  `).bind(transactionId, transactionId, now).run();
+  return result.meta.changes === 1;
 }
 
 export async function loadTemporaryEmailAddresses(

@@ -203,9 +203,11 @@ export async function temporaryAccessExists(
 ): Promise<boolean> {
   const column = kind === "status" ? "status_capability_hash" : "download_capability_hash";
   const row = await db.prepare(`
-    SELECT 1 AS allowed FROM temporary_releases
-    WHERE transaction_id = ? AND ${column} = ?
-      AND cleanup_started_at IS NULL AND expires_at > ?
-  `).bind(transactionId, capabilityHash, now).first();
+    SELECT 1 AS allowed FROM temporary_releases tr
+    JOIN audit_releases ar ON ar.transaction_id = tr.transaction_id
+    WHERE tr.transaction_id = ? AND tr.${column} = ?
+      AND tr.cleanup_started_at IS NULL AND tr.expires_at > ?
+      AND (? = 'status' OR ar.release_state != 'FINALIZING')
+  `).bind(transactionId, capabilityHash, now, kind).first();
   return row !== null;
 }

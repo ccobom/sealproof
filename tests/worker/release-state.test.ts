@@ -27,6 +27,7 @@ async function input(
     documentHash: "a".repeat(64),
     workflowVersion: "test-v1",
     finalizedAt: FINALIZED_AT,
+    documentSize: 4,
     r2ObjectKey: `temporary/${transactionId}.pdf`,
     statusCapabilityHash: await sha256Hex(
       new TextEncoder().encode(`${transactionId}:status`),
@@ -69,6 +70,9 @@ describe("encrypted release-state creation", () => {
       expires_at: EXPIRES_AT,
       cleanup_started_at: null,
     });
+    expect(await env.TEST_DB.prepare(`
+      SELECT release_state FROM audit_releases WHERE transaction_id = ?
+    `).bind(transactionId).first()).toEqual({ release_state: "FINALIZING" });
     expect(await env.TEST_DB.prepare(`
       SELECT recipient_role, attempt_number, delivery_state
       FROM delivery_attempts WHERE transaction_id = ? ORDER BY recipient_role

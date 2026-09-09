@@ -22,9 +22,9 @@ async function createRelease(transactionId: string): Promise<void> {
     env.TEST_DB.prepare(`
       INSERT INTO temporary_releases (
         transaction_id, envelope_version, key_version, envelope_iv,
-        email_ciphertext, wrapped_key_iv, wrapped_data_key, r2_object_key,
+        email_ciphertext, wrapped_key_iv, wrapped_data_key, document_size, r2_object_key,
         status_capability_hash, download_capability_hash, expires_at
-      ) VALUES (?, 1, 'v1', 'iv', 'ciphertext', 'key-iv', 'wrapped-key', ?, ?, ?, ?)
+      ) VALUES (?, 1, 'v1', 'iv', 'ciphertext', 'key-iv', 'wrapped-key', 4, ?, ?, ?, ?)
     `).bind(
       transactionId,
       `synthetic/${transactionId}.pdf`,
@@ -187,5 +187,24 @@ describe("applyVerifiedDeliveryEvent", () => {
       SELECT COUNT(*) AS count FROM processed_webhooks WHERE svix_id = ?
     `).bind(input.svixId).first<{ count: number }>();
     expect(receipt?.count).toBe(0);
+  });
+
+  it("cannot use a delivery event to move a FINALIZING release", async () => {
+    const transactionId = "transaction_webhook_finalizing";
+    await createRelease(transactionId);
+    await env.TEST_DB.prepare(`
+      UPDATE audit_releases SET release_state = 'FINALIZING' WHERE transaction_id = ?
+    `).bind(transactionId).run();
+    const input = event(transactionId);
+
+    await expect(applyVerifiedDeliveryEvent(env.TEST_DB, input)).resolves.toEqual({
+      outcome: "unknown_attempt",
+    });
+    expect(await env.TEST_DB.prepare(`
+      SELECT release_state FROM audit_releases WHERE transaction_id = ?
+    `).bind(transactionId).first()).toEqual({ release_state: "FINALIZING" });
+    expect(await env.TEST_DB.prepare(`
+      SELECT COUNT(*) AS count FROM processed_webhooks WHERE svix_id = ?
+    `).bind(input.svixId).first()).toEqual({ count: 0 });
   });
 });
