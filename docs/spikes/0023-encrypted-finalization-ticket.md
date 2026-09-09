@@ -28,6 +28,6 @@ On September 9, 2026, all four TypeScript checks passed, all 115 tests across 24
 
 ## Remaining gates
 
-- Bind issuance to the accepted Turnstile verifier in a strict HTTP route.
+- Strict local issuance integration passed in `docs/spikes/0024-anonymous-admission-route.md`.
 - Atomically consume each admission ID exactly once during raw-PDF finalization.
 - Keep finalization tickets out of URLs, logs, error bodies, and retained audit records.
