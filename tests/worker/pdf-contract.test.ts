@@ -1,6 +1,10 @@
 import { PDFDocument } from "pdf-lib";
 import { describe, expect, it } from "vitest";
-import { FINAL_PDF_CONTRACT, validateFinalPdf } from "../../src/document/pdf-contract";
+import {
+  FINAL_PDF_CONTRACT,
+  validateFinalPdf,
+  validatePdfUpload,
+} from "../../src/document/pdf-contract";
 
 async function makePdf(pageCount: number): Promise<Uint8Array> {
   const document = await PDFDocument.create();
@@ -44,5 +48,23 @@ describe("final PDF contract", () => {
     await expect(validateFinalPdf(
       new TextEncoder().encode("%PDF-this is not a document"),
     )).resolves.toEqual({ valid: false, reason: "INVALID_PDF" });
+  });
+});
+
+describe("Worker PDF upload boundary", () => {
+  it("enforces byte size and header without claiming full parsing", async () => {
+    const fourPages = await makePdf(4);
+    expect(validatePdfUpload(fourPages)).toEqual({ valid: true });
+    expect(validatePdfUpload(
+      new TextEncoder().encode("%PDF-header-only synthetic bytes"),
+    )).toEqual({ valid: true });
+    expect(validatePdfUpload(new TextEncoder().encode("not a PDF"))).toEqual({
+      valid: false,
+      reason: "INVALID_PDF",
+    });
+    expect(validatePdfUpload(new Uint8Array(3_000_001))).toEqual({
+      valid: false,
+      reason: "PDF_TOO_LARGE",
+    });
   });
 });

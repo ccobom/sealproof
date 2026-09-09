@@ -73,8 +73,9 @@ It may animate while waiting, but it must not claim that an incomplete stage has
 
 - The finalized PDF may contain no more than three pages.
 - The finalized PDF may contain no more than 3,000,000 bytes.
-- The browser should prevent release content from exceeding these limits before signature collection.
-- The Worker independently parses the uploaded PDF and enforces both limits before hashing, storage, or sealing.
+- The reviewed browser generator enforces both limits before signature collection and displays the exact generated PDF for signer review.
+- The Worker independently enforces the 3,000,000-byte limit, checks the PDF header, hashes the exact uploaded bytes, and uses R2 checksum validation before sealing. It does not fully parse the document because the representative remote test exceeded the intended Free-plan CPU budget.
+- The three-page rule is a constraint of SealProof's generator and review flow, not a claim that the Worker can prove the page count of bytes submitted by a modified or hostile client.
 - A document outside either limit is not sealed and produces a clear correction path rather than silently truncating agreement text, images, or signatures.
 
 ## Explicitly outside the first release

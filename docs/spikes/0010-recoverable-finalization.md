@@ -16,7 +16,7 @@ This spike runs entirely in the local Workers runtime with local Miniflare R2 an
 
 `src/release/finalize-release.ts` performs these steps:
 
-1. Enforce SealProof's fixed final-PDF contract, including byte size, parseability, and page count.
+1. Enforce the fixed Worker upload boundary: byte size and PDF header. The reviewed browser generator separately owns full parsing and the three-page rule.
 2. Independently calculate SHA-256 over an owned copy of the browser-provided bytes.
 3. Reject a mismatch with the browser-calculated hash before creating durable state.
 4. Generate a Worker-owned UUID and independent random 256-bit status and download capabilities.
@@ -57,7 +57,7 @@ On September 8, 2026:
 
 ## Remaining gates
 
-- Confirm that server-side PDF parsing fits the intended Cloudflare plan's CPU limit using a dedicated remote synthetic test.
+- Retain monitoring for large-input hashing; the remote evidence and approved trust-boundary adjustment are recorded in `docs/spikes/0011-pdf-size-and-page-limits.md`.
 - Define the HTTP request schema and prevent arbitrary clients from choosing workflow versions or cryptographic configuration.
 - Load the active key version and key-encryption key from reviewed Worker secret configuration.
 - Connect delivery submission only after the coordinator returns `sealed`.

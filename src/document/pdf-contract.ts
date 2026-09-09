@@ -14,13 +14,27 @@ export type PdfContractResult =
   | { valid: true; pageCount: number }
   | { valid: false; reason: PdfContractFailure };
 
-export async function validateFinalPdf(bytes: Uint8Array): Promise<PdfContractResult> {
+export type PdfUploadResult =
+  | { valid: true }
+  | { valid: false; reason: "INVALID_PDF" | "PDF_TOO_LARGE" };
+
+// This is the deliberately small Worker trust boundary. It does not claim to
+// prove that the bytes are a structurally valid PDF; the remote CPU spike
+// showed that full pdf-lib parsing is not reliable within the Free CPU budget.
+export function validatePdfUpload(bytes: Uint8Array): PdfUploadResult {
   if (bytes.byteLength > FINAL_PDF_CONTRACT.maximumBytes) {
     return { valid: false, reason: "PDF_TOO_LARGE" };
   }
   if (bytes.byteLength < 5 || new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-") {
     return { valid: false, reason: "INVALID_PDF" };
   }
+  return { valid: true };
+}
+
+// The reviewed browser generator uses this before signer preview/finalization.
+export async function validateFinalPdf(bytes: Uint8Array): Promise<PdfContractResult> {
+  const upload = validatePdfUpload(bytes);
+  if (!upload.valid) return upload;
 
   let document: PDFDocument;
   try {

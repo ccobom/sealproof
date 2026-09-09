@@ -1,6 +1,6 @@
 import type { TemporaryEmailAddresses } from "../crypto/temporary-pii";
 import { bytesToHex, sha256Bytes } from "../document/hash";
-import { validateFinalPdf, type PdfContractFailure } from "../document/pdf-contract";
+import { validatePdfUpload, type PdfContractFailure } from "../document/pdf-contract";
 import {
   createReleaseState,
   markReleaseSealed,
@@ -113,7 +113,7 @@ export async function finalizeRelease(
   now: () => number = Date.now,
 ): Promise<FinalizeReleaseResult> {
   const pdfBytes = new Uint8Array(input.pdfBytes);
-  const contract = await validateFinalPdf(pdfBytes);
+  const contract = validatePdfUpload(pdfBytes);
   if (!contract.valid) return { outcome: "rejected", reason: contract.reason };
   const digest = await sha256Bytes(pdfBytes);
   const documentHash = bytesToHex(digest);

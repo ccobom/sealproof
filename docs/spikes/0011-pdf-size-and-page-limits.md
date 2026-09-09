@@ -95,6 +95,16 @@ All requests completed successfully. This is strong evidence that byte-size enfo
 
 The temporary Worker and its replacement secret were deleted after measurement, and its former URL returned `404`.
 
+## Approved trust-boundary adjustment
+
+On September 9, 2026, the project owner approved the free-tier design supported by the follow-up evidence:
+
+- the reviewed browser generator owns full parsing, the maximum three-page layout, and the exact signer preview;
+- the Worker independently owns the 3,000,000-byte ceiling, PDF-header check, exact-byte SHA-256 calculation, R2 checksum validation, and sealing transition; and
+- SealProof does not claim that the Worker proves page count for bytes submitted by a modified or hostile client.
+
+This preserves the resource-abuse and byte-integrity boundaries on the server without presenting an unaffordable parsing step as a security guarantee.
+
 ## Conclusion
 
 The three-page, 3,000,000-byte product contract passes its local correctness and representative-size tests. Full `pdf-lib` validation does not reliably fit the intended Free-plan CPU budget at the large-input boundary, so its current placement in the Worker fails that architectural gate and requires an explicit follow-up decision.
