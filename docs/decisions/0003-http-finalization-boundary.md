@@ -84,3 +84,5 @@ This can keep each body simple but creates pre-finalization state, authorization
 ## Approval needed
 
 The project owner has approved adding Zod. The multipart request format, response fields, and public error contract remain proposed until reviewed after the local test implementation.
+
+The isolated metadata schema passed its local validation gate in `docs/spikes/0012-finalization-metadata-schema.md`. HTTP parsing, side-effect, and CPU gates remain open.
