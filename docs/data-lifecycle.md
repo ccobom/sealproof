@@ -46,7 +46,7 @@ Define what happens when:
 - Where pre-finalization PII and the finalized PDF reside during the two-hour window.
 - Encryption and key lifecycle for temporary PDF storage.
 - Resend attachment and message retention, deletion controls, and final disclosure language.
-- Cleanup retry and alerting behavior if explicit or automatic deletion fails.
+- Operational alerting behavior if repeated explicit or automatic cleanup fails.
 
 ## Approval record
 

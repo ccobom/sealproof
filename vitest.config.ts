@@ -8,6 +8,7 @@ export default defineConfig({
       wrangler: { configPath: "./wrangler.jsonc" },
       miniflare: {
         d1Databases: ["TEST_DB"],
+        r2Buckets: ["TEST_BUCKET"],
         bindings: {
           TEST_MIGRATIONS: await readD1Migrations(path.join(import.meta.dirname, "migrations")),
         },

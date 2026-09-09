@@ -40,8 +40,19 @@ CREATE TABLE audit_releases (
     )),
   cleanup_outcome TEXT NOT NULL DEFAULT 'PENDING'
     CHECK (cleanup_outcome IN ('PENDING', 'COMPLETED', 'FAILED')),
+  cleanup_failure_stage TEXT
+    CHECK (cleanup_failure_stage IS NULL OR cleanup_failure_stage IN (
+      'R2_DELETE_OR_CONFIRM',
+      'D1_FINALIZATION'
+    )),
+  cleanup_failed_at INTEGER,
   cleanup_completed_at INTEGER,
   audit_expires_at INTEGER,
+  CHECK (
+    (cleanup_failure_stage IS NULL AND cleanup_failed_at IS NULL)
+    OR
+    (cleanup_failure_stage IS NOT NULL AND cleanup_failed_at IS NOT NULL)
+  ),
   CHECK (
     (cleanup_outcome = 'COMPLETED' AND cleanup_completed_at IS NOT NULL AND audit_expires_at > cleanup_completed_at)
     OR
