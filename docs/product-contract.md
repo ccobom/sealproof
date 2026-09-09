@@ -36,6 +36,8 @@ CREATING
 → DELIVERED
   or
 → DELIVERY_FAILED
+  or
+→ DELIVERY_UNRESOLVED
 → CLOSED
 ```
 
@@ -44,6 +46,7 @@ CREATING
 - **Delivered** means the recipient's mail server accepted the message. It does not mean the person opened or read it.
 - Overall delivery is **delivered** only when both the production and signer messages are delivered.
 - A delivery delay remains pending. A permanent provider failure or bounce is failed for the affected recipient role.
+- If one delivery attempt receives contradictory terminal events, its status and the overall release become **delivery unresolved**. SEALPROOF does not claim success or failure when the provider evidence conflicts.
 
 ## Progress indicator
 
@@ -63,6 +66,7 @@ It may animate while waiting, but it must not claim that an incomplete stage has
 - Explicit production closeout deletes the temporary PDF immediately.
 - If nobody closes the release, SealProof automatically deletes its temporary PDF no later than two hours after finalization.
 - The two-hour expiry always wins over delivery state. At expiry, SealProof deletes the temporary PDF, disables download and retry, closes the release, and records delivery as unresolved if neither success nor permanent failure was confirmed.
+- A delivery with contradictory terminal events is not retried automatically because the original message may have arrived. The interface reports that delivery could not be confirmed and offers download-and-delete during the unchanged two-hour window.
 - Deleting SealProof's copy does not control any copy already processed or retained by the email provider.
 
 ## Explicitly outside the first release

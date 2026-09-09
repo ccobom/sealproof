@@ -14,10 +14,10 @@ Every item of data used by SEALPROOF should have an explicit lifecycle before th
 | Signer photo | Signer device | During active release | SEALPROOF backend; embedded in PDF | Temporary release state and final PDF only | No later than two hours after finalization | Explicit closeout or automatic expiry | Cleanup completion timestamp; no image retained |
 | Signature | Signer device | During active release | SEALPROOF backend; embedded in PDF | Temporary release state and final PDF only | No later than two hours after finalization | Explicit closeout or automatic expiry | Cleanup completion timestamp; no signature retained |
 | Finalized PDF | SEALPROOF | Available for immediate authorized download | Resend, separately for production and signer | Temporary encrypted storage; storage choice open | No later than two hours after finalization | Download-and-delete, production closeout, or automatic expiry | Cleanup completion timestamp plus retained document hash |
-| Document hash | SEALPROOF | May be displayed in result | Included in approved transaction information | Minimal audit record | Audit-retention period open | End of approved audit-retention period | Audit deletion record or database operation evidence; open |
-| Transaction ID | SEALPROOF | Displayed during result | Included in approved transaction information | Minimal audit record | Audit-retention period open | End of approved audit-retention period | Audit deletion record or database operation evidence; open |
-| Resend message IDs and role-specific status | Resend | Displayed as role-level status without address | Resend webhook to SEALPROOF | Minimal audit record | Audit-retention period open | End of approved audit-retention period | Audit deletion record or database operation evidence; open |
-| Cleanup completion timestamp | SEALPROOF | Not required | None | Minimal audit record | Audit-retention period open | End of approved audit-retention period | Audit deletion record or database operation evidence; open |
+| Document hash | SEALPROOF | May be displayed in result | Included in approved transaction information | Minimal audit record | One year after cleanup | Automatic audit expiry | Successful idempotent deletion; no replacement transaction-level record |
+| Transaction ID | SEALPROOF | Displayed during result | Included in approved transaction information | Minimal audit record | One year after cleanup | Automatic audit expiry | Successful idempotent deletion; no replacement transaction-level record |
+| Resend message IDs and role-specific status | Resend | Displayed as role-level status without address | Resend webhook to SEALPROOF | Provider IDs: until cleanup; final role outcomes: one year after cleanup | Cleanup removes provider IDs; automatic audit expiry removes outcomes | Cleanup and audit-deletion operations succeed without retaining provider IDs |
+| Cleanup completion timestamp | SEALPROOF | Not required | None | Minimal audit record | One year after cleanup | Automatic audit expiry | Successful idempotent deletion; no replacement transaction-level record |
 
 ## Lifecycle events
 
@@ -45,7 +45,6 @@ Define what happens when:
 
 - Where pre-finalization PII and the finalized PDF reside during the two-hour window.
 - Encryption and key lifecycle for temporary PDF storage.
-- Audit-record retention duration.
 - Resend attachment and message retention, deletion controls, and final disclosure language.
 - Cleanup retry and alerting behavior if explicit or automatic deletion fails.
 
@@ -53,4 +52,4 @@ Define what happens when:
 
 - Approved by: Project owner
 - Date: September 8, 2026
-- Notes: Explicit deletion and an unconditional two-hour maximum for SealProof-controlled temporary PDF and PII retention are approved. Open lifecycle decisions remain unapproved.
+- Notes: Explicit deletion, an unconditional two-hour maximum for SealProof-controlled temporary PDF and PII retention, and automatic deletion of minimal audit records one year after cleanup are approved. Other open lifecycle decisions remain unapproved.

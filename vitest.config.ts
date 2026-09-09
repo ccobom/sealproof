@@ -1,13 +1,21 @@
-import { cloudflareTest } from "@cloudflare/vitest-plugin";
+import path from "node:path";
+import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [
-    cloudflareTest({
+    cloudflareTest(async () => ({
       wrangler: { configPath: "./wrangler.jsonc" },
-    }),
+      miniflare: {
+        d1Databases: ["TEST_DB"],
+        bindings: {
+          TEST_MIGRATIONS: await readD1Migrations(path.join(import.meta.dirname, "migrations")),
+        },
+      },
+    })),
   ],
   test: {
     include: ["tests/worker/**/*.test.ts"],
+    setupFiles: ["./tests/setup.ts"],
   },
 });
