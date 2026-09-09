@@ -26,6 +26,10 @@ const ENVIRONMENT: SealProofEnvironment = {
   KEY_ENCRYPTION_KEY_BASE64: base64(Uint8Array.from({ length: 32 }, (_, index) => index)),
   ACTIVE_TICKET_KEY_VERSION: "ticket-v1",
   TICKET_ENCRYPTION_KEY_BASE64: base64(Uint8Array.from({ length: 32 }, (_, index) => 255 - index)),
+  ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION: "provider-v1",
+  PROVIDER_ATTACHMENT_KEYS_JSON: JSON.stringify({
+    "provider-v1": base64(Uint8Array.from({ length: 32 }, (_, index) => index + 1)),
+  }),
 };
 
 describe("production-shaped local Worker", () => {
