@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SEALPROOF browser PDF spike</title>
+    <script type="module" src="/main.ts"></script>
+  </head>
+  <body>
+    <main>
+      <h1>Browser PDF and Worker hash spike</h1>
+      <p>This test uses synthetic data only. It does not store or email the PDF.</p>
+      <button id="run" type="button">Generate PDF and compare hashes</button>
+      <pre id="result" aria-live="polite">Not run yet.</pre>
+      <hr />
+      <h2>Authorized Resend path test</h2>
+      <p>The trigger token is used only for this request and is not stored by the page.</p>
+      <label>Trigger token <input id="trigger-token" type="password" autocomplete="off" /></label>
+      <button id="send" type="button">Send one synthetic test email</button>
+      <button id="cleanup" type="button" disabled>Delete temporary PDF</button>
+      <pre id="send-result" aria-live="polite">Not run yet.</pre>
+    </main>
+  </body>
+</html>

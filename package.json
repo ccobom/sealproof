@@ -3,8 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:browser-spike": "vite build",
     "types": "wrangler types",
-    "check": "npm run types && tsc --noEmit && tsc --noEmit --project tests/tsconfig.json",
+    "check": "npm run types && tsc --noEmit && tsc --noEmit --project tests/tsconfig.json && tsc --noEmit --project src/browser-spike/tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
@@ -13,6 +14,7 @@
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.1.6",
     "typescript": "^6.0.3",
+    "vite": "^7.1.5",
     "vitest": "^4.1.0",
     "wrangler": "^4.130.0"
   }

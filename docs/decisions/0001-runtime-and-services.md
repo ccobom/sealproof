@@ -1,9 +1,9 @@
 # 0001 — Runtime and Services
 
-- Status: Proposed
+- Status: Accepted with amendment
 - Date: September 8, 2026
 - Decision owner: Project owner
-- Validation gate: TypeScript Worker PDF generation and hashing spike
+- Validation gate: Browser PDF generation, Worker hashing, private R2, and Resend delivery spikes
 
 ## Context
 
@@ -34,15 +34,17 @@ TypeScript will define explicit client-side data and state boundaries. Shared Zo
 
 Use TypeScript in a Cloudflare Worker.
 
-The Worker will validate requests, authorize release capabilities, finalize PDFs, calculate and verify SHA-256 hashes, coordinate delivery and retry, receive authenticated webhooks, update audit state, and enforce cleanup.
+The Worker will validate requests, authorize release capabilities, independently hash browser-generated PDF bytes, coordinate temporary storage, delivery and retry, receive authenticated webhooks, update audit state, and enforce cleanup.
 
 Browser and Worker code share a language but not a trust level. Resend credentials, storage access, database bindings, and encryption keys exist only in the Worker environment.
 
 ### PDF and hashing
 
-Use `pdf-lib` in the Worker to construct the final PDF from validated data and image bytes. Use Cloudflare's native Web Crypto API to calculate SHA-256 over the final PDF bytes.
+Use `pdf-lib` in the browser to construct the final PDF that the signer reviews and approves. Upload those exact bytes to the Worker, which uses Cloudflare's native Web Crypto API to independently calculate SHA-256 before storage and delivery.
 
-The exact finalized bytes are the source of truth. The hash, both email attachments, any temporary R2 object, and any local download must all derive from those same bytes rather than independently regenerated documents.
+This amendment changes the trust claim. The Worker proves identity and continuity of the exact approved bytes; it does not independently prove that visible PDF content corresponds to structured browser fields. The product must therefore make the exact generated PDF available for meaningful signer review before approval and describe sealing as applying to that reviewed document.
+
+The exact signer-approved bytes are the source of truth. The Worker-calculated hash, both email attachments, temporary R2 object, and any local download must all derive from those same bytes rather than independently regenerated documents.
 
 ### Durable audit data
 
@@ -69,7 +71,7 @@ R2 is not approved for permanent release storage.
 
 Use Resend to send separate messages to the production and signer addresses.
 
-Both messages must attach the same finalized PDF bytes. Each message receives its own provider ID and role-specific delivery status. Authenticated Resend webhooks will distinguish API acceptance, delivery, delay, permanent failure, and bounce.
+Both messages must attach the same finalized PDF bytes. Resend retrieves them through a short-lived, capability-protected Worker URL backed by private R2, avoiding Worker-side Base64 conversion. Each message receives its own provider ID and role-specific delivery status. Authenticated Resend webhooks will distinguish API acceptance, delivery, delay, permanent failure, and bounce.
 
 Resend's processing and retention are outside SealProof-controlled storage and require accurate user-facing disclosure. The final disclosure language remains an open product decision.
 
@@ -106,7 +108,9 @@ Generating and sending a PDF entirely in one request would minimize custody. The
 
 - The application becomes coupled to Cloudflare Workers bindings and D1.
 - Shared TypeScript types do not validate runtime input by themselves; Worker-side Zod validation and database constraints remain mandatory.
-- `pdf-lib` performance and output quality in the Workers runtime remain unproven.
+- Browser PDF generation depends on device resources and requires representative mobile and browser compatibility testing.
+- A compromised browser could display different content from the uploaded bytes; signer review, browser security controls, and precise product claims are part of the security boundary.
+- Capability URLs are temporary bearer credentials that may appear in infrastructure or provider logs and must expire no later than the stored document.
 - Browser and Worker code could be confused during review because they share a language; directory and import boundaries must make the trust boundary obvious.
 - D1 may require a different concurrency design than PostgreSQL.
 - Temporary R2 storage expands the sensitive-data surface and requires encryption, access control, expiry, and cleanup evidence.
@@ -115,25 +119,21 @@ Generating and sending a PDF entirely in one request would minimize custody. The
 
 ## Validation gate
 
-Local validation evidence is recorded in `docs/spikes/0001-worker-pdf-hash.md`. PDF construction, image embedding, exact-byte SHA-256 verification, Worker-runtime execution, and dry-build size have passed. Production CPU usage against the selected Cloudflare plan remains unverified, so this decision remains **Proposed**.
+Validation evidence is recorded in `docs/spikes/0001-worker-pdf-hash.md` through `0004-resend-r2-path.md`. Server-side PDF construction failed the Free CPU requirement. Browser-side construction, independent Worker hashing, private R2 retrieval, capability-protected Resend attachment delivery, inbox receipt, exact downloaded-byte verification, and explicit R2 deletion passed. The send, attachment retrieval, and cleanup requests used 4 ms, 1 ms, and 3 ms of Worker CPU respectively.
 
-Before this decision can become **Accepted**, a minimal technical spike must demonstrate that a local Cloudflare TypeScript Worker can:
+The completed technical spikes demonstrated that the selected TypeScript stack can:
 
-1. generate a readable PDF from hardcoded release information;
+1. generate a readable PDF from hardcoded release information in the browser;
 2. embed a representative photo and signature;
 3. calculate the PDF's SHA-256 hash;
 4. independently recalculate and match that hash from the returned bytes;
-5. run `pdf-lib` in the actual local Workers runtime rather than only in Node;
+5. transfer the exact PDF through private R2 and Resend without Worker-side Base64 encoding;
 6. fit the Cloudflare plan's applicable CPU, memory, request, and output limits.
 
-The spike will not contain real personal information, send email, write to D1, or retain a document.
+The spikes used only synthetic document data and deleted every temporary Cloudflare resource after measurement.
 
-## Acceptance criteria
+## Decision outcome
 
-After the spike, update this record to one of:
+**Accepted with amendment** — browser-side PDF generation and capability-protected provider retrieval replace Worker-side PDF generation and attachment encoding while retaining the TypeScript, Cloudflare, R2, D1, and Resend architecture.
 
-- **Accepted** — the proposed stack passed the validation gate;
-- **Accepted with amendment** — a documented component, such as the PDF library or execution strategy, changed while retaining the overall architecture;
-- **Rejected** — the proposed direction is not viable, with evidence and a replacement decision record.
-
-No production stack is approved merely by creating this document.
+This acceptance does not approve unfinished security mechanisms. Authenticated duplicate-safe webhooks, automatic two-hour cleanup, signer review behavior, capability expiry, runtime schemas, and representative browser/device testing remain required implementation gates.

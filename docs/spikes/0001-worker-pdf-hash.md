@@ -106,8 +106,32 @@ npx wrangler deploy --dry-run --outdir .wrangler/dry-run
 
 The bundle is well below Cloudflare's 64 MiB Worker-size limit and the test document is well below the 128 MB runtime memory ceiling. The Workers Free plan currently permits only 10 ms of CPU time per HTTP request.
 
-Local wall-clock and process-level timing are not authoritative Cloudflare CPU measurements. After JPEG and vector-signature optimization, the local mean was 8.625 ms per request and one batch averaged exactly 10 ms. Before accepting the architecture decision, run the synthetic endpoint in a non-production Cloudflare preview or deployment and inspect its CPU usage. Representative production-size inputs must then be confirmed against the selected plan's limit. Remote validation requires a separate approval because it creates Cloudflare state.
+### Remote Cloudflare measurement
+
+With explicit approval, synthetic version `1d9e24b3-ea27-4342-82d5-318ad81230bf` was temporarily deployed as `sealproof-pdf-spike` with 100% invocation logging. No secrets or service bindings were present.
+
+The first five invocations reported CPU times of 47, 41, 85, 85, and 10 ms. A subsequent 20-request sample reported:
+
+- mean: 12.4 ms;
+- median: 11 ms;
+- minimum: 4 ms;
+- maximum: 44 ms;
+- invocations at or below 10 ms: 10 of 20.
+
+All 25 requests returned successful outcomes, but the implementation did not reliably remain within the Workers Free nominal 10 ms CPU limit. Cloudflare documents rollover CPU behavior that can allow higher quantiles without invocation errors, so successful responses are not evidence that the limit is safe for production.
+
+The temporary Worker was deleted immediately after measurement. Its former URL returned `404` after deletion. The temporary 100% observability setting was removed from the repository configuration. Cloudflare may retain the synthetic invocation logs, including connection metadata, for the Free plan's normal log-retention period; none of that metadata is copied into this repository.
+
+## Remaining decision
+
+The PDF and exact-byte hash design works in the deployed Workers runtime, but it fails the requirement to fit reliably within Workers Free CPU limits. Before accepting the architecture decision, choose one of:
+
+- adopt Workers Paid for server-side PDF finalization;
+- approve a materially different finalization strategy and validate its trust and integrity consequences;
+- replace the backend runtime through a new decision record.
+
+Do not attempt to evade the per-invocation limit by splitting one finalization operation across artificial requests; that would add state, failure, and integrity complexity to a security-sensitive boundary.
 
 ## Conclusion
 
-The core library and byte-integrity approach pass locally in the intended runtime. The architecture decision remains **Proposed** until the Cloudflare CPU-limit check is completed or the execution strategy is amended.
+The core library and byte-integrity approach pass both locally and remotely in the intended runtime. The current implementation does not reliably fit Workers Free CPU limits. The architecture decision remains **Proposed** until the project owner approves Workers Paid or selects and validates a different finalization strategy.
