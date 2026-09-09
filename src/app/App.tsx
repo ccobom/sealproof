@@ -9,8 +9,11 @@ import { signerDetailsSchema, type SignerDetails } from "./signer-details";
 import { PhotoCapture } from "./PhotoCapture";
 import { SignatureCapture } from "./SignatureCapture";
 import { validateSignature, type Signature } from "../document/signature-contract";
+import type { FinalizedRelease, ReleaseStatus } from "./finalization-client";
 
-type Screen = "setup" | "preview" | "handoff" | "signer" | "photo" | "signature" | "finalReview" | "localComplete";
+type Screen = "setup" | "preview" | "handoff" | "signer" | "photo" | "signature" | "finalReview" | "sealedLocal" | "localComplete";
+
+const LOCAL_RUNTIME_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
 const INITIAL_SETUP: ProductionSetup = {
   productionName: "",
@@ -40,8 +43,11 @@ export function App() {
   const [finalPdfUrl, setFinalPdfUrl] = useState<string>();
   const [finalPdfBytes, setFinalPdfBytes] = useState<Uint8Array>();
   const [finalPdfHash, setFinalPdfHash] = useState<string>();
+  const [finalizedRelease, setFinalizedRelease] = useState<FinalizedRelease>();
+  const [releaseStatus, setReleaseStatus] = useState<ReleaseStatus>();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
+  const localRuntime = LOCAL_RUNTIME_HOSTS.has(window.location.hostname);
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -195,7 +201,51 @@ export function App() {
     show("signer");
   }
 
+  async function sealLocalRelease() {
+    if (!localRuntime || !finalPdfBytes || !finalPdfHash) return;
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      const { requestFinalizationAdmission, uploadReviewedPdf, requestReleaseStatus } = await import("./finalization-client");
+      const admission = await requestFinalizationAdmission({
+        productionEmail: setup.productionEmail,
+        signerEmail: signer.signerEmail,
+        browserDocumentHash: finalPdfHash,
+        turnstileToken: "local-synthetic-challenge-proof",
+      });
+      const release = await uploadReviewedPdf(finalPdfBytes, finalPdfHash, admission.ticket);
+      const status = await requestReleaseStatus(release);
+      setFinalizedRelease(release);
+      setReleaseStatus(status);
+      show("sealedLocal");
+    } catch {
+      setFailure("The local sealing test did not complete. Your reviewed PDF remains in this browser; no successful closeout has been claimed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function closeLocalRelease() {
+    if (!finalizedRelease) return;
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      const { closeoutRelease } = await import("./finalization-client");
+      await closeoutRelease(finalizedRelease);
+      setFinalizedRelease(undefined);
+      setReleaseStatus(undefined);
+      show("localComplete");
+    } catch {
+      setFailure("SealProof could not confirm deletion of the local Worker copy. Access is not represented as closed; please retry.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function clearLocalTest() {
+    previewBytes?.fill(0);
+    finalPdfBytes?.fill(0);
+    signerPhoto?.fill(0);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(undefined);
     setPreviewBytes(undefined);
@@ -203,6 +253,8 @@ export function App() {
     setFinalPdfUrl(undefined);
     setFinalPdfBytes(undefined);
     setFinalPdfHash(undefined);
+    setFinalizedRelease(undefined);
+    setReleaseStatus(undefined);
     const freshSetup = { ...INITIAL_SETUP, agreementDate: todayForDateInput() };
     setSetup(freshSetup);
     setSigner(initialSignerDetails(freshSetup.agreementDate));
@@ -225,7 +277,9 @@ export function App() {
       </header>
 
       <div className="test-banner" role="note">
-        Test mode: no contract will be sealed, uploaded, stored, or emailed.
+        {localRuntime
+          ? "Local synthetic mode: use test information only. Nothing is emailed or sent to a live service."
+          : "Test mode: no contract will be sealed, uploaded, stored, or emailed."}
       </div>
 
       <main>
@@ -233,7 +287,7 @@ export function App() {
           <li aria-current={screen === "setup" ? "step" : undefined} className={progressStage >= 0 ? "complete" : ""}>Production details</li>
           <li aria-current={screen === "preview" ? "step" : undefined} className={progressStage >= 1 ? "complete" : ""}>Setup preview</li>
           <li aria-current={["handoff", "signer"].includes(screen) ? "step" : undefined} className={progressStage >= 2 ? "complete" : ""}>Signer review</li>
-          <li aria-current={["photo", "signature", "finalReview", "localComplete"].includes(screen) ? "step" : undefined} className={progressStage >= 3 ? "complete" : ""}>Evidence &amp; final review</li>
+          <li aria-current={["photo", "signature", "finalReview", "sealedLocal", "localComplete"].includes(screen) ? "step" : undefined} className={progressStage >= 3 ? "complete" : ""}>Evidence &amp; final review</li>
         </ol>
 
         {screen === "setup" ? (
@@ -368,6 +422,12 @@ export function App() {
             <p className="eyebrow">Exact local PDF review</p>
             <h1 id="final-review-heading">Review the complete test document</h1>
             <p className="lede">This preview, download, and SHA-256 value all refer to the same PDF bytes. Review them before confirming the local test.</p>
+            {localRuntime && (
+              <div className="handoff-card">
+                <p><strong>Local synthetic test:</strong> sealing will send these exact bytes only to the Worker running on this computer.</p>
+                <p>The Worker will store an encrypted copy in local development storage until you complete the deletion step. Do not use real personal information.</p>
+              </div>
+            )}
             {finalPdfUrl && <iframe className="pdf-preview" src={finalPdfUrl} title="Complete local test release PDF" />}
             <div className="hash-card">
               <span>SHA-256</span>
@@ -379,18 +439,47 @@ export function App() {
               {finalPdfUrl && finalPdfBytes && (
                 <a className="secondary-button" href={finalPdfUrl} download="sealproof-local-final-test.pdf">Download exact test PDF</a>
               )}
-              <button className="primary-button" type="button" onClick={() => show("localComplete")}>I reviewed this exact test PDF</button>
+              {localRuntime ? (
+                <button className="primary-button" type="button" onClick={sealLocalRelease} disabled={busy}>
+                  {busy ? "Sealing locally…" : "Seal this exact PDF locally"}
+                </button>
+              ) : (
+                <button className="primary-button" type="button" onClick={() => show("localComplete")}>I reviewed this exact test PDF</button>
+              )}
             </div>
+            {failure && <p className="error-summary" role="alert">{failure}</p>}
+          </section>
+        ) : screen === "sealedLocal" ? (
+          <section className="panel" aria-labelledby="sealed-local-heading">
+            <p className="eyebrow">Encrypted local test</p>
+            <h1 id="sealed-local-heading">The exact PDF is sealed in local storage.</h1>
+            <p className="lede">The Worker independently matched the document hash and stored only encrypted PDF bytes. No email was sent and no live service was contacted.</p>
+            <div className="handoff-card">
+              <p><strong>Transaction:</strong> <code className="inline-hash">{finalizedRelease?.transactionId}</code></p>
+              <p><strong>Worker status:</strong> {releaseStatus?.releaseState ?? "Unavailable"}</p>
+              <p><strong>Production delivery:</strong> {releaseStatus?.productionDeliveryOutcome ?? "Unavailable"}</p>
+              <p><strong>Signer delivery:</strong> {releaseStatus?.signerDeliveryOutcome ?? "Unavailable"}</p>
+              <p><strong>SHA-256:</strong> <code className="inline-hash">{releaseStatus?.documentHash}</code></p>
+            </div>
+            <div className="preview-actions">
+              {finalPdfUrl && finalPdfBytes && (
+                <a className="secondary-button" href={finalPdfUrl} download="sealproof-local-sealed-test.pdf">Download browser copy</a>
+              )}
+              <button className="primary-button" type="button" onClick={closeLocalRelease} disabled={busy}>
+                {busy ? "Deleting local Worker copy…" : "Delete Worker copy and close test"}
+              </button>
+            </div>
+            {failure && <p className="error-summary" role="alert">{failure}</p>}
           </section>
         ) : (
           <section className="panel" aria-labelledby="complete-heading">
             <p className="eyebrow">Local evidence complete</p>
-            <h1 id="complete-heading">Your complete test PDF passed local review.</h1>
-            <p className="lede">Nothing was uploaded, remotely stored, emailed, or sealed. The PDF and its source inputs exist only in this open browser page.</p>
+            <h1 id="complete-heading">{localRuntime ? "Local Worker storage was deleted." : "Your complete test PDF passed local review."}</h1>
+            <p className="lede">{localRuntime ? "SealProof confirmed removal of the encrypted Worker copy and temporary local database state. Nothing was emailed or sent to a live service." : "Nothing was uploaded, remotely stored, emailed, or sealed. The PDF and its source inputs exist only in this open browser page."}</p>
             <div className="handoff-card">
               <p><strong>Local SHA-256:</strong> <code className="inline-hash">{finalPdfHash}</code></p>
-              <p><strong>This is still a local test:</strong> reviewing this PDF did not seal or deliver a contract.</p>
-              <p><strong>Next build:</strong> encrypt and temporarily upload these exact PDF bytes for independent server verification.</p>
+              <p><strong>This is still a test:</strong> no contract was delivered and no live service received its contents.</p>
+              <p><strong>Privacy:</strong> use the button below to clear the remaining PDF and source inputs from this browser page.</p>
             </div>
             <button className="secondary-button" type="button" onClick={clearLocalTest}>End test and clear inputs</button>
           </section>

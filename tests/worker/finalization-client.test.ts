@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   FinalizationRequestError,
+  closeoutRelease,
   requestFinalizationAdmission,
+  requestReleaseStatus,
   uploadReviewedPdf,
   type FinalizationFetcher,
 } from "../../src/app/finalization-client";
@@ -84,5 +86,69 @@ describe("browser finalization client", () => {
       turnstileToken: "bad-proof",
     }, async () => Response.json({ error: "CHALLENGE_REJECTED", privateDetail: "do not expose" }, { status: 403 })))
       .rejects.toEqual(new FinalizationRequestError("admission", 403));
+  });
+
+  it("reads only matching status and closes with the stronger capability", async () => {
+    const release = {
+      transactionId: "0808d915-b28e-4f8a-9d26-f8f9702f110f",
+      documentHash: HASH,
+      statusCapability: CAPABILITY,
+      downloadCapability: "B".repeat(43),
+    };
+    const statusFetcher = vi.fn<FinalizationFetcher>(async () => Response.json({
+      transactionId: release.transactionId,
+      documentHash: HASH,
+      releaseState: "SEALED_AWAITING_DELIVERY",
+      productionDeliveryOutcome: "PENDING",
+      signerDeliveryOutcome: "PENDING",
+      failureCategory: null,
+      expiresAt: 7_202_000,
+    }));
+    await expect(requestReleaseStatus(release, statusFetcher)).resolves.toMatchObject({
+      releaseState: "SEALED_AWAITING_DELIVERY",
+    });
+    expect(statusFetcher.mock.calls[0][1]).toMatchObject({
+      method: "GET",
+      headers: { authorization: `Bearer ${CAPABILITY}` },
+      credentials: "omit",
+      cache: "no-store",
+      redirect: "error",
+    });
+
+    const closeoutFetcher = vi.fn<FinalizationFetcher>(async () => Response.json({
+      outcome: "closed",
+      transactionId: release.transactionId,
+    }));
+    await expect(closeoutRelease(release, closeoutFetcher)).resolves.toBeUndefined();
+    expect(closeoutFetcher.mock.calls[0][1]).toMatchObject({
+      method: "DELETE",
+      headers: { authorization: `Bearer ${release.downloadCapability}` },
+      credentials: "omit",
+      cache: "no-store",
+      redirect: "error",
+    });
+  });
+
+  it("rejects mismatched status and closeout identities", async () => {
+    const release = {
+      transactionId: "0808d915-b28e-4f8a-9d26-f8f9702f110f",
+      documentHash: HASH,
+      statusCapability: CAPABILITY,
+      downloadCapability: "B".repeat(43),
+    };
+    await expect(requestReleaseStatus(release, async () => Response.json({
+      transactionId: "ea455c24-61f0-40e4-8c78-cde0f3cc4478",
+      documentHash: HASH,
+      releaseState: "SEALED_AWAITING_DELIVERY",
+      productionDeliveryOutcome: "PENDING",
+      signerDeliveryOutcome: "PENDING",
+      failureCategory: null,
+      expiresAt: 7_202_000,
+    }))).rejects.toMatchObject({ stage: "status", status: 200 });
+
+    await expect(closeoutRelease(release, async () => Response.json({
+      outcome: "closed",
+      transactionId: "ea455c24-61f0-40e4-8c78-cde0f3cc4478",
+    }))).rejects.toMatchObject({ stage: "closeout", status: 200 });
   });
 });

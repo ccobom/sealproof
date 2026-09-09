@@ -72,6 +72,15 @@ describe("anonymous finalization admission route", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
+  it("accepts an exact same-origin HTTPS development port", async () => {
+    const candidate = new Request("https://sealproof.example:8787/api/releases/admissions", {
+      method: "POST",
+      headers: { origin: "https://sealproof.example:8787", "content-type": "application/json" },
+      body: JSON.stringify(BODY),
+    });
+    expect((await handleAdmissionRequest(candidate, ENVIRONMENT, NOW, acceptedFetcher())).status).toBe(201);
+  });
+
   it("rejects declared and actual oversized bodies before verification", async () => {
     const fetcher = acceptedFetcher();
     const declared = request();

@@ -17,6 +17,28 @@ const finalizationResponseSchema = z.strictObject({
   downloadCapability: capabilitySchema,
 });
 
+const statusResponseSchema = z.strictObject({
+  transactionId: z.uuid(),
+  documentHash: hashSchema,
+  releaseState: z.enum(["FINALIZING", "SEALED_AWAITING_DELIVERY", "DELIVERED", "DELIVERY_FAILED", "DELIVERY_UNRESOLVED"]),
+  productionDeliveryOutcome: z.enum(["PENDING", "DELIVERED", "FAILED", "UNRESOLVED"]),
+  signerDeliveryOutcome: z.enum(["PENDING", "DELIVERED", "FAILED", "UNRESOLVED"]),
+  failureCategory: z.enum([
+    "delivery_bounced",
+    "provider_submission_failed",
+    "expired_delivery_unresolved",
+    "conflicting_provider_events",
+    "cleanup_failed",
+    "unknown_failure",
+  ]).nullable(),
+  expiresAt: z.number().int().positive().safe(),
+});
+
+const closeoutResponseSchema = z.strictObject({
+  outcome: z.literal("closed"),
+  transactionId: z.uuid(),
+});
+
 export interface AdmissionInput {
   productionEmail: string;
   signerEmail: string;
@@ -26,6 +48,7 @@ export interface AdmissionInput {
 
 export type Admission = z.infer<typeof admissionResponseSchema>;
 export type FinalizedRelease = z.infer<typeof finalizationResponseSchema>;
+export type ReleaseStatus = z.infer<typeof statusResponseSchema>;
 export type FinalizationFetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 type PrivateBrowserRequestInit = RequestInit & {
   credentials: "omit";
@@ -33,7 +56,7 @@ type PrivateBrowserRequestInit = RequestInit & {
 
 export class FinalizationRequestError extends Error {
   constructor(
-    readonly stage: "admission" | "upload",
+    readonly stage: "admission" | "upload" | "status" | "closeout",
     readonly status: number | undefined,
   ) {
     super(`SealProof ${stage} request failed`);
@@ -41,11 +64,14 @@ export class FinalizationRequestError extends Error {
   }
 }
 
-async function parsedJson(response: Response): Promise<unknown> {
+async function parsedJson(
+  response: Response,
+  stage: FinalizationRequestError["stage"],
+): Promise<unknown> {
   try {
     return await response.json();
   } catch {
-    throw new FinalizationRequestError("admission", response.status);
+    throw new FinalizationRequestError(stage, response.status);
   }
 }
 
@@ -63,9 +89,50 @@ export async function requestFinalizationAdmission(
   };
   const response = await fetcher("/api/releases/admissions", request);
   if (!response.ok) throw new FinalizationRequestError("admission", response.status);
-  const parsed = admissionResponseSchema.safeParse(await parsedJson(response));
+  const parsed = admissionResponseSchema.safeParse(await parsedJson(response, "admission"));
   if (!parsed.success) throw new FinalizationRequestError("admission", response.status);
   return parsed.data;
+}
+
+export async function requestReleaseStatus(
+  release: Pick<FinalizedRelease, "transactionId" | "documentHash" | "statusCapability">,
+  fetcher: FinalizationFetcher = fetch,
+): Promise<ReleaseStatus> {
+  const request: PrivateBrowserRequestInit = {
+    method: "GET",
+    headers: { authorization: `Bearer ${release.statusCapability}` },
+    cache: "no-store",
+    credentials: "omit",
+    redirect: "error",
+  };
+  const response = await fetcher(`/api/releases/${release.transactionId}/status`, request);
+  if (!response.ok) throw new FinalizationRequestError("status", response.status);
+  const parsed = statusResponseSchema.safeParse(await parsedJson(response, "status"));
+  if (
+    !parsed.success
+    || parsed.data.transactionId !== release.transactionId
+    || parsed.data.documentHash !== release.documentHash
+  ) throw new FinalizationRequestError("status", response.status);
+  return parsed.data;
+}
+
+export async function closeoutRelease(
+  release: Pick<FinalizedRelease, "transactionId" | "downloadCapability">,
+  fetcher: FinalizationFetcher = fetch,
+): Promise<void> {
+  const request: PrivateBrowserRequestInit = {
+    method: "DELETE",
+    headers: { authorization: `Bearer ${release.downloadCapability}` },
+    cache: "no-store",
+    credentials: "omit",
+    redirect: "error",
+  };
+  const response = await fetcher(`/api/releases/${release.transactionId}`, request);
+  if (!response.ok) throw new FinalizationRequestError("closeout", response.status);
+  const parsed = closeoutResponseSchema.safeParse(await parsedJson(response, "closeout"));
+  if (!parsed.success || parsed.data.transactionId !== release.transactionId) {
+    throw new FinalizationRequestError("closeout", response.status);
+  }
 }
 
 export async function uploadReviewedPdf(

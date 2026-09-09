@@ -61,7 +61,7 @@ export async function handleTicketFinalizationRequest(
     const url = new URL(request.url);
     if (
       url.protocol !== "https:" || url.hostname !== environment.EXPECTED_HOSTNAME
-      || request.headers.get("origin") !== `https://${environment.EXPECTED_HOSTNAME}`
+      || request.headers.get("origin") !== url.origin
     ) return error("INVALID_REQUEST", 400);
     if (request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() !== "application/pdf") {
       return error("INVALID_PDF", 415);

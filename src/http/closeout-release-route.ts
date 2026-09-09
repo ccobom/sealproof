@@ -40,7 +40,7 @@ export async function handleCloseoutReleaseRequest(
   const capability = bearerCapability(request);
   if (
     url.protocol !== "https:" || url.hostname !== environment.EXPECTED_HOSTNAME
-    || request.headers.get("origin") !== `https://${environment.EXPECTED_HOSTNAME}`
+    || request.headers.get("origin") !== url.origin
     || !match || !capability
   ) return hiddenNotFound();
   if (request.headers.has("content-type") || Number(request.headers.get("content-length")) > 0) {
