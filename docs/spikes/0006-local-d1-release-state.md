@@ -28,9 +28,12 @@ Closed SQL constraints reject unapproved release states, delivery states, roles,
 On September 8, 2026:
 
 - all production, test, and browser TypeScript checks passed;
-- all 33 tests across six files passed;
+- all 39 tests across seven files passed;
 - one batched creation produced exactly one initial attempt for each role;
-- duplicate `svix-id` insertion was rejected by a primary-key constraint;
+- one verified event atomically created its temporary receipt, changed its delivery attempt, and recomputed the release-level outcomes;
+- two simultaneous applications of the same verified event produced one application, one duplicate result, and one receipt;
+- reuse of a `svix-id` with a different payload hash was rejected without changing delivery state;
+- an event for an unknown provider message ID was not retained;
 - retry created a distinct numbered attempt tied to the same transaction and document hash;
 - production and signer states remained independent and overall state was derived;
 - late non-terminal events could not downgrade terminal outcomes;
@@ -42,9 +45,9 @@ On September 8, 2026:
 
 ## Remaining gate
 
-This result does not yet prove the entire decision. Before acceptance, executable application code and tests must demonstrate:
+The duplicate-safe state-application gate now passes. This result does not yet prove the entire decision. Before acceptance, executable application code and tests must demonstrate:
 
-- atomic duplicate-safe webhook insertion plus state application, rather than testing the uniqueness constraint alone;
+- Resend/Svix signature verification on the original request bytes before the verified-event function is called;
 - idempotent repeated cleanup;
 - fail-safe recovery across the non-transactional R2/D1 cleanup boundary;
 - integration of the validated encrypted-email envelope with the temporary row;
@@ -52,4 +55,4 @@ This result does not yet prove the entire decision. Before acceptance, executabl
 
 ## Conclusion
 
-The proposed schema and pure state reducer pass their first local gate. No remote D1 resource is justified yet. Continue locally until the remaining transaction and cleanup behaviors have executable evidence.
+The schema, pure state reducer, and atomic duplicate-safe application path pass their local gates. No remote D1 resource is justified yet. Continue locally until the signature-verification and cleanup behaviors have executable evidence.

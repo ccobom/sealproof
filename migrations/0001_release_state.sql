@@ -91,6 +91,8 @@ CREATE TABLE delivery_attempts (
 
 CREATE TABLE processed_webhooks (
   svix_id TEXT PRIMARY KEY CHECK (length(svix_id) BETWEEN 1 AND 128),
+  payload_hash TEXT NOT NULL
+    CHECK (length(payload_hash) = 64 AND payload_hash NOT GLOB '*[^0-9a-f]*'),
   transaction_id TEXT NOT NULL
     REFERENCES temporary_releases(transaction_id) ON DELETE CASCADE,
   delivery_attempt_id INTEGER NOT NULL

@@ -70,9 +70,9 @@ describe("release database migration", () => {
 
     const insert = env.TEST_DB.prepare(`
       INSERT INTO processed_webhooks (
-        svix_id, transaction_id, delivery_attempt_id, event_type, received_at
-      ) VALUES ('webhook_duplicate', ?, ?, 'email.sent', ?)
-    `).bind(transactionId, attempt!.id, FINALIZED_AT);
+        svix_id, payload_hash, transaction_id, delivery_attempt_id, event_type, received_at
+      ) VALUES ('webhook_duplicate', ?, ?, ?, 'email.sent', ?)
+    `).bind("b".repeat(64), transactionId, attempt!.id, FINALIZED_AT);
     await insert.run();
 
     await expect(insert.run()).rejects.toThrow();
@@ -105,9 +105,9 @@ describe("release database migration", () => {
     ).bind(transactionId).first<{ id: number }>();
     await env.TEST_DB.prepare(`
       INSERT INTO processed_webhooks (
-        svix_id, transaction_id, delivery_attempt_id, event_type, received_at
-      ) VALUES ('webhook_cleanup', ?, ?, 'email.delivered', ?)
-    `).bind(transactionId, attempt!.id, FINALIZED_AT).run();
+        svix_id, payload_hash, transaction_id, delivery_attempt_id, event_type, received_at
+      ) VALUES ('webhook_cleanup', ?, ?, ?, 'email.delivered', ?)
+    `).bind("c".repeat(64), transactionId, attempt!.id, FINALIZED_AT).run();
 
     const cleanupAt = EXPIRES_AT;
     const auditExpiry = cleanupAt + 31_536_000_000;
