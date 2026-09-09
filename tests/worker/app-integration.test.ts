@@ -1,0 +1,103 @@
+import { env } from "cloudflare:workers";
+import { PDFDocument } from "pdf-lib";
+import { describe, expect, it, vi } from "vitest";
+import { cleanupRelease } from "../../src/cleanup/release-cleanup";
+import { sha256Hex } from "../../src/document/hash";
+import {
+  requestFinalizationAdmission,
+  uploadReviewedPdf,
+  type FinalizationFetcher,
+} from "../../src/app/finalization-client";
+import { createSealProofWorker, type SealProofEnvironment } from "../../src/worker/app";
+
+const NOW = 1_800_000_000_000;
+const ORIGIN = "https://sealproof.example";
+
+function base64(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes));
+}
+
+const ENVIRONMENT: SealProofEnvironment = {
+  RELEASE_DB: env.TEST_DB,
+  RELEASE_DOCUMENTS: env.TEST_BUCKET,
+  TURNSTILE_SECRET_KEY: "synthetic-turnstile-secret",
+  EXPECTED_HOSTNAME: "sealproof.example",
+  ACTIVE_WORKFLOW_VERSION: "workflow-v1",
+  ACTIVE_KEY_VERSION: "pdf-kek-v1",
+  KEY_ENCRYPTION_KEY_BASE64: base64(Uint8Array.from({ length: 32 }, (_, index) => index)),
+  ACTIVE_TICKET_KEY_VERSION: "ticket-v1",
+  TICKET_ENCRYPTION_KEY_BASE64: base64(Uint8Array.from({ length: 32 }, (_, index) => 255 - index)),
+};
+
+describe("production-shaped local Worker", () => {
+  it("carries synthetic reviewed bytes through admission and encrypted finalization", async () => {
+    const turnstileFetcher = vi.fn(async () => Response.json({
+      success: true,
+      hostname: "sealproof.example",
+      action: "release-finalization",
+    }));
+    let currentTime = NOW;
+    const worker = createSealProofWorker({ fetcher: turnstileFetcher, now: () => currentTime++ });
+    const browserFetcher: FinalizationFetcher = async (input, init) => {
+      const headers = new Headers(init?.headers);
+      headers.set("origin", ORIGIN);
+      return worker.fetch(new Request(new URL(String(input), ORIGIN), {
+        ...init,
+        headers,
+        // The browser client uses `error`; Workers' local Request supports only
+        // `follow` and `manual`. Unit coverage retains the exact browser assertion.
+        redirect: "manual",
+      }), ENVIRONMENT);
+    };
+
+    const document = await PDFDocument.create();
+    document.addPage();
+    const reviewedBytes = await document.save();
+    const reviewedHash = await sha256Hex(reviewedBytes);
+
+    const admission = await requestFinalizationAdmission({
+      productionEmail: "producer@example.invalid",
+      signerEmail: "signer@example.invalid",
+      browserDocumentHash: reviewedHash,
+      turnstileToken: "synthetic-challenge-proof",
+    }, browserFetcher);
+    const result = await uploadReviewedPdf(reviewedBytes, reviewedHash, admission.ticket, browserFetcher);
+
+    expect(turnstileFetcher).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ outcome: "sealed", documentHash: reviewedHash });
+    const stored = await env.TEST_DB.prepare(`
+      SELECT r2_object_key FROM temporary_releases WHERE transaction_id = ?
+    `).bind(result.transactionId).first<{ r2_object_key: string }>();
+    const object = await env.TEST_BUCKET.get(stored!.r2_object_key);
+    const storedBytes = new Uint8Array(await object!.arrayBuffer());
+    expect(new TextDecoder().decode(storedBytes.subarray(0, 5))).not.toBe("%PDF-");
+
+    await expect(cleanupRelease(
+      env.TEST_DB,
+      env.TEST_BUCKET,
+      result.transactionId,
+      "production_closeout",
+      currentTime,
+    )).resolves.toMatchObject({ outcome: "completed" });
+  });
+
+  it("fails closed for unknown API paths without invoking assets", async () => {
+    const assets = { fetch: vi.fn(async () => new Response("asset")) };
+    const worker = createSealProofWorker();
+    const response = await worker.fetch(
+      new Request(`${ORIGIN}/api/private-unknown`),
+      { ...ENVIRONMENT, ASSETS: assets },
+    );
+    expect(response.status).toBe(404);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(assets.fetch).not.toHaveBeenCalled();
+  });
+
+  it("falls through non-API requests to static assets", async () => {
+    const assets = { fetch: vi.fn(async () => new Response("app asset")) };
+    const worker = createSealProofWorker();
+    const response = await worker.fetch(new Request(`${ORIGIN}/`), { ...ENVIRONMENT, ASSETS: assets });
+    expect(await response.text()).toBe("app asset");
+    expect(assets.fetch).toHaveBeenCalledOnce();
+  });
+});
