@@ -23,6 +23,30 @@ function provider(fetcher: typeof fetch): ResendDeliveryProvider {
 }
 
 describe("Resend delivery provider", () => {
+  it("calls the native fetch binding without rebinding its receiver", async () => {
+    let observedReceiver: unknown;
+    vi.stubGlobal("fetch", function (this: unknown) {
+      observedReceiver = this;
+      if (this !== undefined && this !== globalThis) {
+        throw new TypeError("Illegal invocation");
+      }
+      return Promise.resolve(Response.json({ id: "native-receiver-safe" }));
+    });
+
+    try {
+      const defaultProvider = new ResendDeliveryProvider({
+        apiKey: "re_synthetic_test_key",
+        from: "SealProof <releases@sealproof.example>",
+      });
+      await expect(defaultProvider.submit(submission)).resolves.toEqual({
+        providerMessageId: "native-receiver-safe",
+      });
+      expect(observedReceiver === undefined || observedReceiver === globalThis).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("sends the exact bounded request and returns only the provider id", async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json({
       id: "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794",

@@ -116,7 +116,7 @@ export class ResendDeliveryProvider implements DeliveryProvider {
     }
     this.#apiKey = configuration.apiKey;
     this.#from = configuration.from;
-    this.#fetcher = configuration.fetcher ?? fetch;
+    this.#fetcher = configuration.fetcher ?? ((input, init) => fetch(input, init));
   }
 
   async submit(input: DeliverySubmission): Promise<DeliverySubmissionReceipt> {
