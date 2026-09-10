@@ -14,19 +14,24 @@ custom hostname, apply a database migration, install a secret, or store data.
 
 ## Current deployment blockers
 
-`wrangler.test.jsonc` intentionally retains the
-`REPLACE_WITH_VERIFIED_RESEND_FROM_ADDRESS` placeholder. It declares six
-required secret names but contains none of their values. Deployment is not
-approved until:
+`wrangler.test.jsonc` uses the project owner's confirmed sender,
+`SealProof Releases <releases@sealproof.app>`, on the verified
+`sealproof.app` domain. It declares six required secret names but contains none
+of their values. Deployment is not approved until:
 
-1. the exact verified Resend sender address is confirmed;
-2. the empty D1 database receives the reviewed migrations;
-3. six test-environment secrets are generated or obtained through their
+1. six test-environment secrets are generated or obtained through their
    respective services and installed without entering source control or chat;
-4. Turnstile explicitly permits `test.sealproof.app`;
-5. Resend's webhook endpoint is configured as
+2. Turnstile explicitly permits `test.sealproof.app`;
+3. Resend's webhook endpoint is configured as
    `https://test.sealproof.app/api/webhooks/resend`; and
-6. a final Wrangler dry run reports the intended Worker, hostname, database,
+4. a final Wrangler dry run reports the intended Worker, hostname, database,
    bucket, assets, schedule, variables, and required secret names.
 
 The live-test deployment must happen as its own explicit checkpoint.
+
+## Database preparation
+
+All four migrations through `0004_encrypted_provider_ticket.sql` were applied
+to the remote test database. A subsequent migration check reported nothing
+pending. Aggregate read-only verification found zero audit releases, temporary
+releases, delivery attempts, processed webhooks, and consumed admissions.

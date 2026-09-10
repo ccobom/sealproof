@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  // CONTROLLED LIVE TEST ONLY. RESEND_FROM must be reviewed before deployment.
+  // CONTROLLED LIVE TEST ONLY. This file contains no secret values.
   "name": "sealproof-test",
   "main": "src/worker/production-app.ts",
   "compatibility_date": "2026-09-09",
@@ -39,7 +39,7 @@
     "ACTIVE_KEY_VERSION": "pdf-v1",
     "ACTIVE_TICKET_KEY_VERSION": "ticket-v1",
     "ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION": "provider-v1",
-    "RESEND_FROM": "REPLACE_WITH_VERIFIED_RESEND_FROM_ADDRESS"
+    "RESEND_FROM": "SealProof Releases <releases@sealproof.app>"
   },
   "secrets": {
     "required": [

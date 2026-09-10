@@ -21,6 +21,7 @@ written and reviewed locally. Neither resource contains application data.
 
 ## Next gate
 
-Confirm the exact verified Resend sender address before replacing the final
-public-configuration placeholder. Do not apply migrations, install secrets,
-configure DNS, configure a webhook, or deploy in this checkpoint.
+The project owner confirmed `SealProof Releases <releases@sealproof.app>` on
+the verified `sealproof.app` domain. Apply the reviewed migrations to the empty
+test database. Do not install secrets, configure DNS, configure a webhook, or
+deploy in this checkpoint.
