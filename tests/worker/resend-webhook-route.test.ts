@@ -35,6 +35,7 @@ function environment(secret = SECRET) {
     RELEASE_DB: env.TEST_DB,
     RELEASE_DOCUMENTS: env.TEST_BUCKET,
     TURNSTILE_SECRET_KEY: "0x4AAAA-synthetic-turnstile-secret",
+    TURNSTILE_SITE_KEY: "0x4AAAAAAEugZnhz6_XrWjKi",
     EXPECTED_HOSTNAME: "app.sealproof.test",
     ACTIVE_WORKFLOW_VERSION: "release-v1",
     ACTIVE_KEY_VERSION: "pdf-v1",

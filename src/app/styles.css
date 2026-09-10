@@ -90,6 +90,9 @@ input:focus { outline: 3px solid rgba(35, 106, 74, .23); border-color: #236a4a; 
 .local-simulation { max-width: 650px; margin: 30px auto; padding: 20px 24px; border: 1px dashed #657169; border-radius: 10px; background: #f8f7f2; }
 .local-simulation h2 { margin: 0; font-size: 1.15rem; }
 .local-simulation p { color: #526158; line-height: 1.55; }
+.turnstile-boundary { flex: 1 0 100%; max-width: 680px; padding: 18px; border: 1px solid #98a49c; border-radius: 10px; background: #f8f7f2; }
+.turnstile-boundary > p:first-child { margin: 0 0 6px; }
+.turnstile-boundary .privacy-note { margin: 0 0 14px; }
 
 @media (max-width: 640px) {
   .progress { grid-template-columns: repeat(2, 1fr); }

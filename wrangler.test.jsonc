@@ -39,6 +39,7 @@
     "ACTIVE_KEY_VERSION": "pdf-v1",
     "ACTIVE_TICKET_KEY_VERSION": "ticket-v1",
     "ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION": "provider-v1",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAEugZnhz6_XrWjKi",
     "RESEND_FROM": "SealProof Releases <releases@sealproof.app>"
   },
   "secrets": {

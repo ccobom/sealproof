@@ -3,6 +3,9 @@
 ## Address and isolation
 
 - Application hostname: `test.sealproof.app`
+- Turnstile widget: `SealProof Test`, managed mode, restricted to
+  `test.sealproof.app`, pre-clearance off
+- Public Turnstile site key: `0x4AAAAAAEugZnhz6_XrWjKi`
 - Worker name: `sealproof-test`
 - D1 database: `sealproof-test`
 - D1 database ID: `5ab60654-c8a5-425b-83c9-0431eb75fa40`
@@ -21,10 +24,9 @@ of their values. Deployment is not approved until:
 
 1. six test-environment secrets are generated or obtained through their
    respective services and installed without entering source control or chat;
-2. Turnstile explicitly permits `test.sealproof.app`;
-3. Resend's webhook endpoint is configured as
+2. Resend's webhook endpoint is configured as
    `https://test.sealproof.app/api/webhooks/resend`; and
-4. a final Wrangler dry run reports the intended Worker, hostname, database,
+3. a final Wrangler dry run reports the intended Worker, hostname, database,
    bucket, assets, schedule, variables, and required secret names.
 
 The live-test deployment must happen as its own explicit checkpoint.

@@ -63,6 +63,8 @@ export function validProductionConfiguration(
     || typeof environment.TURNSTILE_SECRET_KEY !== "string"
     || environment.TURNSTILE_SECRET_KEY.length < 16
     || environment.TURNSTILE_SECRET_KEY.length > 512
+    || typeof environment.TURNSTILE_SITE_KEY !== "string"
+    || !/^0x[A-Za-z0-9_-]{20,128}$/.test(environment.TURNSTILE_SITE_KEY)
     || typeof environment.RESEND_API_KEY !== "string"
     || !/^re_[A-Za-z0-9_-]{8,256}$/.test(environment.RESEND_API_KEY)
     || typeof environment.RESEND_WEBHOOK_SECRET !== "string"

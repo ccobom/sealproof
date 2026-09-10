@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   productionSetupSchema,
   SYNTHETIC_RELEASE_TEXT,
@@ -11,8 +11,10 @@ import { SignatureCapture } from "./SignatureCapture";
 import { validateSignature, type Signature } from "../document/signature-contract";
 import type { FinalizedRelease, ReleaseStatus } from "./finalization-client";
 import type { LocalFakeDeliveryEvent } from "./finalization-client";
+import { TurnstileChallenge } from "./TurnstileChallenge";
+import type { PublicConfig } from "./public-config-client";
 
-type Screen = "setup" | "preview" | "handoff" | "signer" | "photo" | "signature" | "finalReview" | "sealedLocal" | "localComplete";
+type Screen = "setup" | "preview" | "handoff" | "signer" | "photo" | "signature" | "finalReview" | "sealedLocal" | "productionCloseout" | "localComplete";
 
 const LOCAL_RUNTIME_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
@@ -49,7 +51,13 @@ export function App() {
   const [retryingRole, setRetryingRole] = useState<"PRODUCTION" | "SIGNER">();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
+  const [publicConfig, setPublicConfig] = useState<PublicConfig>();
+  const [turnstileToken, setTurnstileToken] = useState<string>();
+  const [turnstileResetVersion, setTurnstileResetVersion] = useState(0);
   const localRuntime = LOCAL_RUNTIME_HOSTS.has(window.location.hostname);
+  const updateTurnstileToken = useCallback((token: string | undefined) => {
+    setTurnstileToken(token);
+  }, []);
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -58,6 +66,39 @@ export function App() {
   useEffect(() => () => {
     if (finalPdfUrl) URL.revokeObjectURL(finalPdfUrl);
   }, [finalPdfUrl]);
+
+  useEffect(() => {
+    if (localRuntime || screen !== "finalReview" || publicConfig) return;
+    let active = true;
+    void import("./public-config-client").then(({ loadPublicConfig }) => loadPublicConfig())
+      .then((configuration) => {
+        if (active) publicConfig === undefined && setPublicConfig(configuration);
+      })
+      .catch(() => {
+        if (active) setFailure("SealProof's live-test configuration is unavailable. Your reviewed PDF remains only in this browser.");
+      });
+    return () => { active = false; };
+  }, [localRuntime, publicConfig, screen]);
+
+  useEffect(() => {
+    if (localRuntime || screen !== "sealedLocal" || !finalizedRelease
+      || releaseStatus?.releaseState !== "SEALED_AWAITING_DELIVERY") return;
+    let active = true;
+    const poll = async () => {
+      try {
+        const { requestReleaseStatus } = await import("./finalization-client");
+        const status = await requestReleaseStatus(finalizedRelease);
+        if (active) setReleaseStatus(status);
+      } catch {
+        if (active) setFailure("SealProof could not refresh delivery status. The sealed release remains subject to its original two-hour expiration.");
+      }
+    };
+    const interval = window.setInterval(() => { void poll(); }, 3_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [finalizedRelease, localRuntime, releaseStatus?.releaseState, screen]);
 
   function update(field: keyof ProductionSetup, value: string) {
     setSetup((current) => ({ ...current, [field]: value }));
@@ -203,8 +244,8 @@ export function App() {
     show("signer");
   }
 
-  async function sealLocalRelease() {
-    if (!localRuntime || !finalPdfBytes || !finalPdfHash) return;
+  async function sealRelease() {
+    if (!finalPdfBytes || !finalPdfHash || (!localRuntime && !turnstileToken)) return;
     setBusy(true);
     setFailure(undefined);
     try {
@@ -213,7 +254,7 @@ export function App() {
         productionEmail: setup.productionEmail,
         signerEmail: signer.signerEmail,
         browserDocumentHash: finalPdfHash,
-        turnstileToken: "local-synthetic-challenge-proof",
+        turnstileToken: localRuntime ? "local-synthetic-challenge-proof" : turnstileToken!,
       });
       const release = await uploadReviewedPdf(finalPdfBytes, finalPdfHash, admission.ticket);
       const status = await requestReleaseStatus(release);
@@ -221,7 +262,13 @@ export function App() {
       setReleaseStatus(status);
       show("sealedLocal");
     } catch {
-      setFailure("The local sealing test did not complete. Your reviewed PDF remains in this browser; no successful closeout has been claimed.");
+      setFailure(localRuntime
+        ? "The local sealing test did not complete. Your reviewed PDF remains in this browser; no successful closeout has been claimed."
+        : "The live sealing test did not complete. Your reviewed PDF remains in this browser; no successful closeout has been claimed. Complete a fresh anti-abuse check before retrying.");
+      if (!localRuntime) {
+        setTurnstileToken(undefined);
+        setTurnstileResetVersion((value) => value + 1);
+      }
     } finally {
       setBusy(false);
     }
@@ -238,7 +285,9 @@ export function App() {
       setReleaseStatus(undefined);
       show("localComplete");
     } catch {
-      setFailure("SealProof could not confirm deletion of the local Worker copy. Access is not represented as closed; please retry.");
+      setFailure(localRuntime
+        ? "SealProof could not confirm deletion of the local Worker copy. Access is not represented as closed; please retry."
+        : "SealProof could not confirm deletion of its temporary copy. The release is not represented as closed; please retry.");
     } finally {
       setBusy(false);
     }
@@ -295,11 +344,16 @@ export function App() {
       setReleaseStatus(await requestReleaseStatus(finalizedRelease));
       if (result.outcome === "accepted") {
         setRetryingRole(recipientRole);
+        if (!localRuntime) show("sealedLocal");
       } else {
-        setFailure("The new retry attempt exists but fake provider acceptance is still pending. You may retry this action; the original PDF and expiry are unchanged.");
+        setFailure(localRuntime
+          ? "The new retry attempt exists but fake provider acceptance is still pending. You may retry this action; the original PDF and expiry are unchanged."
+          : "The new retry attempt exists but provider acceptance is still pending. You may retry this action; the original PDF and expiry are unchanged.");
       }
     } catch {
-      setFailure("SealProof could not create or recover the fake retry attempt. The original PDF and expiry are unchanged.");
+      setFailure(localRuntime
+        ? "SealProof could not create or recover the fake retry attempt. The original PDF and expiry are unchanged."
+        : "SealProof could not create or recover the delivery retry. The original PDF and expiry are unchanged.");
     } finally {
       setBusy(false);
     }
@@ -319,6 +373,8 @@ export function App() {
     setFinalizedRelease(undefined);
     setReleaseStatus(undefined);
     setRetryingRole(undefined);
+    setTurnstileToken(undefined);
+    setTurnstileResetVersion(0);
     const freshSetup = { ...INITIAL_SETUP, agreementDate: todayForDateInput() };
     setSetup(freshSetup);
     setSigner(initialSignerDetails(freshSetup.agreementDate));
@@ -337,13 +393,13 @@ export function App() {
     <div className="app-shell">
       <header className="site-header">
         <a className="wordmark" href="/" aria-label="SealProof home">SEALPROOF</a>
-        <span className="build-label">local build</span>
+        <span className="build-label">{localRuntime ? "local build" : "controlled live test"}</span>
       </header>
 
       <div className="test-banner" role="note">
         {localRuntime
           ? "Local synthetic mode: use test information only. Nothing is emailed or sent to a live service."
-          : "Test mode: no contract will be sealed, uploaded, stored, or emailed."}
+          : "Controlled live test: use only email addresses you control and synthetic names, photos, signatures, and agreement content."}
       </div>
 
       <main>
@@ -351,7 +407,7 @@ export function App() {
           <li aria-current={screen === "setup" ? "step" : undefined} className={progressStage >= 0 ? "complete" : ""}>Production details</li>
           <li aria-current={screen === "preview" ? "step" : undefined} className={progressStage >= 1 ? "complete" : ""}>Setup preview</li>
           <li aria-current={["handoff", "signer"].includes(screen) ? "step" : undefined} className={progressStage >= 2 ? "complete" : ""}>Signer review</li>
-          <li aria-current={["photo", "signature", "finalReview", "sealedLocal", "localComplete"].includes(screen) ? "step" : undefined} className={progressStage >= 3 ? "complete" : ""}>Evidence &amp; final review</li>
+          <li aria-current={["photo", "signature", "finalReview", "sealedLocal", "productionCloseout", "localComplete"].includes(screen) ? "step" : undefined} className={progressStage >= 3 ? "complete" : ""}>Evidence &amp; final review</li>
         </ol>
 
         {screen === "setup" ? (
@@ -483,13 +539,19 @@ export function App() {
           </section>
         ) : screen === "finalReview" ? (
           <section className="panel preview-panel" aria-labelledby="final-review-heading">
-            <p className="eyebrow">Exact local PDF review</p>
+            <p className="eyebrow">Exact PDF review</p>
             <h1 id="final-review-heading">Review the complete test document</h1>
             <p className="lede">This preview, download, and SHA-256 value all refer to the same PDF bytes. Review them before confirming the local test.</p>
             {localRuntime && (
               <div className="handoff-card">
                 <p><strong>Local synthetic test:</strong> sealing will send these exact bytes only to the Worker running on this computer.</p>
                 <p>The Worker will store an encrypted copy in local development storage until you complete the deletion step. Do not use real personal information.</p>
+              </div>
+            )}
+            {!localRuntime && (
+              <div className="handoff-card">
+                <p><strong>Controlled live test:</strong> sealing uploads these exact PDF bytes to SealProof, which independently verifies their hash and stores only an encrypted temporary copy.</p>
+                <p>Resend will retrieve and email separate copies to both entered addresses. SealProof deletes its temporary PDF and personal information at closeout or expiration, no later than two hours. Resend and recipient email providers retain their own copies independently.</p>
               </div>
             )}
             {finalPdfUrl && <iframe className="pdf-preview" src={finalPdfUrl} title="Complete local test release PDF" />}
@@ -501,23 +563,49 @@ export function App() {
             <div className="preview-actions">
               <button className="secondary-button" type="button" onClick={correctSignerInputs}>Correct signer inputs</button>
               {finalPdfUrl && finalPdfBytes && (
-                <a className="secondary-button" href={finalPdfUrl} download="sealproof-local-final-test.pdf">Download exact test PDF</a>
+                <a className="secondary-button" href={finalPdfUrl} download="sealproof-final-test.pdf">Download exact test PDF</a>
               )}
               {localRuntime ? (
-                <button className="primary-button" type="button" onClick={sealLocalRelease} disabled={busy}>
+                <button className="primary-button" type="button" onClick={sealRelease} disabled={busy}>
                   {busy ? "Sealing locally…" : "Seal this exact PDF locally"}
                 </button>
               ) : (
-                <button className="primary-button" type="button" onClick={() => show("localComplete")}>I reviewed this exact test PDF</button>
+                <>
+                  {publicConfig ? (
+                    <TurnstileChallenge
+                      siteKey={publicConfig.turnstileSiteKey}
+                      action={publicConfig.turnstileAction}
+                      resetVersion={turnstileResetVersion}
+                      onTokenChange={updateTurnstileToken}
+                    />
+                  ) : (
+                    <p className="privacy-note">Loading the privacy-preserving anti-abuse check…</p>
+                  )}
+                  <button className="primary-button" type="button" onClick={sealRelease} disabled={busy || !turnstileToken}>
+                    {busy ? "Sealing and submitting delivery…" : turnstileToken ? "Seal and send this exact PDF" : "Complete the anti-abuse check to seal"}
+                  </button>
+                </>
               )}
             </div>
             {failure && <p className="error-summary" role="alert">{failure}</p>}
           </section>
         ) : screen === "sealedLocal" ? (
           <section className="panel" aria-labelledby="sealed-local-heading">
-            <p className="eyebrow">Encrypted local test</p>
-            <h1 id="sealed-local-heading">The exact PDF is sealed in local storage.</h1>
-            <p className="lede">The Worker independently matched the document hash and stored only encrypted PDF bytes. No email was sent and no live service was contacted.</p>
+            <p className="eyebrow">{localRuntime ? "Encrypted local test" : "Contract sealed"}</p>
+            <h1 id="sealed-local-heading">{localRuntime
+              ? "The exact PDF is sealed in local storage."
+              : releaseStatus?.releaseState === "DELIVERED"
+                ? "Delivery confirmed."
+                : releaseStatus?.releaseState === "DELIVERY_FAILED"
+                  ? "A delivery failed."
+                  : "The contract is sealed. Awaiting delivery."}</h1>
+            <p className="lede">{localRuntime
+              ? "The Worker independently matched the document hash and stored only encrypted PDF bytes. No email was sent and no live service was contacted."
+              : releaseStatus?.releaseState === "DELIVERED"
+                ? "Resend reports that both recipient copies were delivered. Please hand the device back to production."
+                : releaseStatus?.releaseState === "DELIVERY_FAILED"
+                  ? "The exact PDF remains available until closeout or its original expiration. Please hand the device back to production to choose the next action."
+                  : "SealProof independently matched the PDF hash, stored an encrypted temporary copy, and submitted separate recipient deliveries. This page checks for authenticated delivery updates automatically."}</p>
             <div className="handoff-card">
               <p><strong>Transaction:</strong> <code className="inline-hash">{finalizedRelease?.transactionId}</code></p>
               <p><strong>Worker status:</strong> {releaseStatus?.releaseState ?? "Unavailable"}</p>
@@ -565,24 +653,59 @@ export function App() {
                 )}
               </div>
             )}
+            {localRuntime ? (
+              <div className="preview-actions">
+                {finalPdfUrl && finalPdfBytes && (
+                  <a className="secondary-button" href={finalPdfUrl} download="sealproof-local-sealed-test.pdf">Download browser copy</a>
+                )}
+                <button className="primary-button" type="button" onClick={closeLocalRelease} disabled={busy}>
+                  {busy ? "Deleting local Worker copy…" : "Delete Worker copy and close test"}
+                </button>
+              </div>
+            ) : releaseStatus?.releaseState === "SEALED_AWAITING_DELIVERY" ? (
+              <p className="privacy-note" role="status">Checking authenticated delivery status every few seconds. You may leave this page open; access still expires at the original two-hour deadline.</p>
+            ) : (
+              <button className="primary-button" type="button" onClick={() => show("productionCloseout")}>I am production and have the device</button>
+            )}
+            {failure && <p className="error-summary" role="alert">{failure}</p>}
+          </section>
+        ) : screen === "productionCloseout" ? (
+          <section className="panel" aria-labelledby="production-closeout-heading">
+            <p className="eyebrow">Production closeout</p>
+            <h1 id="production-closeout-heading">Choose the final test action.</h1>
+            <p className="lede">Production may download the browser-held copy, retry an eligible failed delivery, or close the release. Closing immediately deletes SealProof's temporary PDF and personal information; emailed copies remain with Resend and their recipients.</p>
+            {releaseStatus?.releaseState === "DELIVERY_FAILED" && (
+              <div className="preview-actions">
+                {releaseStatus.productionDeliveryOutcome === "FAILED" && releaseStatus.productionRetriesRemaining > 0 && (
+                  <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("PRODUCTION")}>Retry production delivery</button>
+                )}
+                {releaseStatus.signerDeliveryOutcome === "FAILED" && releaseStatus.signerRetriesRemaining > 0 && (
+                  <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("SIGNER")}>Retry signer delivery</button>
+                )}
+                {((releaseStatus.productionDeliveryOutcome === "FAILED" && releaseStatus.productionRetriesRemaining === 0)
+                  || (releaseStatus.signerDeliveryOutcome === "FAILED" && releaseStatus.signerRetriesRemaining === 0)) && (
+                  <p className="privacy-note">No retries remain for the failed recipient. Download if needed, then close the release.</p>
+                )}
+              </div>
+            )}
             <div className="preview-actions">
               {finalPdfUrl && finalPdfBytes && (
-                <a className="secondary-button" href={finalPdfUrl} download="sealproof-local-sealed-test.pdf">Download browser copy</a>
+                <a className="secondary-button" href={finalPdfUrl} download="sealproof-sealed-test.pdf">Download browser copy</a>
               )}
               <button className="primary-button" type="button" onClick={closeLocalRelease} disabled={busy}>
-                {busy ? "Deleting local Worker copy…" : "Delete Worker copy and close test"}
+                {busy ? "Deleting SealProof storage…" : "Delete SealProof copy and close release"}
               </button>
             </div>
             {failure && <p className="error-summary" role="alert">{failure}</p>}
           </section>
         ) : (
           <section className="panel" aria-labelledby="complete-heading">
-            <p className="eyebrow">Local evidence complete</p>
-            <h1 id="complete-heading">{localRuntime ? "Local Worker storage was deleted." : "Your complete test PDF passed local review."}</h1>
-            <p className="lede">{localRuntime ? "SealProof confirmed removal of the encrypted Worker copy and temporary local database state. Nothing was emailed or sent to a live service." : "Nothing was uploaded, remotely stored, emailed, or sealed. The PDF and its source inputs exist only in this open browser page."}</p>
+            <p className="eyebrow">{localRuntime ? "Local evidence complete" : "SealProof closeout complete"}</p>
+            <h1 id="complete-heading">{localRuntime ? "Local Worker storage was deleted." : "SealProof's temporary copy was deleted."}</h1>
+            <p className="lede">{localRuntime ? "SealProof confirmed removal of the encrypted Worker copy and temporary local database state. Nothing was emailed or sent to a live service." : "SealProof confirmed removal of its encrypted PDF, temporary personal information, delivery-attempt details, and webhook receipts. Recipient mailboxes and Resend retain their own delivered copies independently."}</p>
             <div className="handoff-card">
               <p><strong>Local SHA-256:</strong> <code className="inline-hash">{finalPdfHash}</code></p>
-              <p><strong>This is still a test:</strong> no contract was delivered and no live service received its contents.</p>
+              <p><strong>This is still a test:</strong> {localRuntime ? "no contract was delivered and no live service received its contents." : "use the received messages only as controlled technical-test evidence."}</p>
               <p><strong>Privacy:</strong> use the button below to clear the remaining PDF and source inputs from this browser page.</p>
             </div>
             <button className="secondary-button" type="button" onClick={clearLocalTest}>End test and clear inputs</button>

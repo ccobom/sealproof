@@ -18,6 +18,7 @@ function configuration(): ProductionEnvironment {
     RELEASE_DB: env.TEST_DB,
     RELEASE_DOCUMENTS: env.TEST_BUCKET,
     TURNSTILE_SECRET_KEY: "0x4AAAA-synthetic-turnstile-secret",
+    TURNSTILE_SITE_KEY: "0x4AAAAAAEugZnhz6_XrWjKi",
     EXPECTED_HOSTNAME: "app.sealproof.test",
     ACTIVE_WORKFLOW_VERSION: "release-v1",
     ACTIVE_KEY_VERSION: "pdf-v1",
@@ -50,6 +51,7 @@ describe("production configuration", () => {
     ["RESEND_FROM", "bad\r\nBcc: victim@example.com"],
     ["RESEND_WEBHOOK_SECRET", ""],
     ["TURNSTILE_SECRET_KEY", "short"],
+    ["TURNSTILE_SITE_KEY", "REPLACE_WITH_TURNSTILE_SITE_KEY"],
   ] as const)("rejects malformed or unsafe %s", (name, value) => {
     expect(validProductionConfiguration({ ...configuration(), [name]: value })).toBe(false);
   });
@@ -66,6 +68,19 @@ describe("production configuration", () => {
     expect(await response.json()).toEqual({ error: "SERVICE_UNAVAILABLE" });
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("mounts only the approved public Turnstile configuration", async () => {
+    const worker = createProductionWorker();
+    const response = await worker.fetch(
+      new Request("https://app.sealproof.test/api/public-config"),
+      configuration(),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      turnstileSiteKey: "0x4AAAAAAEugZnhz6_XrWjKi",
+      turnstileAction: "release-finalization",
+    });
   });
 
   it("keeps cleanup eligibility independent from email secrets", () => {

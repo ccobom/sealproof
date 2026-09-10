@@ -2,6 +2,7 @@ import { createSealProofWorker } from "./app";
 import { createProductionDeliveryHandlers } from "./production-delivery";
 import { handleResendWebhookRequest } from "../http/resend-webhook-route";
 import type { ProductionDeliveryEnvironment } from "./production-delivery";
+import { handlePublicConfigRequest } from "../http/public-config-route";
 import {
   validCleanupBindings,
   validProductionConfiguration,
@@ -11,6 +12,7 @@ type NetworkFetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<
 
 export interface ProductionEnvironment extends ProductionDeliveryEnvironment {
   RESEND_WEBHOOK_SECRET: string;
+  TURNSTILE_SITE_KEY: string;
 }
 
 export interface ProductionWorkerDependencies {
@@ -39,6 +41,9 @@ export function createProductionWorker(dependencies: ProductionWorkerDependencie
             "x-content-type-options": "nosniff",
           },
         });
+      }
+      if (path === "/api/public-config") {
+        return handlePublicConfigRequest(request, environment);
       }
       if (path === "/api/webhooks/resend") {
         return handleResendWebhookRequest(request, environment, now());
