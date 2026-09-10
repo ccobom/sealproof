@@ -90,7 +90,8 @@ export async function submitPendingDeliveries(
     JOIN audit_releases ar ON ar.transaction_id = da.transaction_id
     WHERE da.transaction_id = ? AND da.delivery_state = 'PENDING_SUBMISSION'
       AND da.provider_message_id IS NULL AND tr.cleanup_started_at IS NULL
-      AND tr.expires_at > ? AND ar.release_state = 'SEALED_AWAITING_DELIVERY'
+      AND tr.expires_at > ?
+      AND ar.release_state IN ('SEALED_AWAITING_DELIVERY', 'DELIVERY_FAILED')
     ORDER BY da.id
   `).bind(transactionId, now).all<PendingAttemptRow>();
   if (attempts.results.length === 0) return result;

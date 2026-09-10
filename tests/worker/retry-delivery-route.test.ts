@@ -37,7 +37,7 @@ beforeAll(async () => {
   PDF_BYTES = await document.save();
 });
 
-async function failedRelease() {
+async function failedRelease(productionEvent: "email.delivered" | "email.bounced" = "email.delivered") {
   const result = await finalizeRelease(env.TEST_DB, env.TEST_BUCKET, {
     pdfBytes: PDF_BYTES,
     browserDocumentHash: await sha256Hex(PDF_BYTES),
@@ -64,7 +64,7 @@ async function failedRelease() {
   }>();
   for (const attempt of attempts.results) {
     const eventType = attempt.recipient_role === "PRODUCTION"
-      ? "email.delivered" as const
+      ? productionEvent
       : "email.bounced" as const;
     await applyVerifiedDeliveryEvent(env.TEST_DB, {
       svixId: `retry-fixture-${result.transactionId}-${attempt.recipient_role}`,
@@ -78,7 +78,11 @@ async function failedRelease() {
   return result;
 }
 
-function request(transactionId: string, capability: string) {
+function request(
+  transactionId: string,
+  capability: string,
+  recipientRole: "PRODUCTION" | "SIGNER" = "SIGNER",
+) {
   return new Request(`https://sealproof.example/api/releases/${transactionId}/retry`, {
     method: "POST",
     headers: {
@@ -86,7 +90,7 @@ function request(transactionId: string, capability: string) {
       "content-type": "application/json",
       origin: "https://sealproof.example",
     },
-    body: JSON.stringify({ recipientRole: "SIGNER" }),
+    body: JSON.stringify({ recipientRole }),
   });
 }
 
@@ -107,6 +111,32 @@ async function bounceLatestSigner(transactionId: string, suffix: string, at: num
 }
 
 describe("delivery retry route", () => {
+  it("submits one pending retry while the other recipient remains failed", async () => {
+    const release = await failedRelease("email.bounced");
+    const response = await handleRetryDeliveryRequest(
+      request(release.transactionId, release.downloadCapability, "PRODUCTION"),
+      ENVIRONMENT,
+      NOW + 3,
+      runLocalFakeRetry,
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      outcome: "accepted",
+      recipientRole: "PRODUCTION",
+      attemptNumber: 2,
+    });
+    expect(await env.TEST_DB.prepare(`
+      SELECT attempt_number, delivery_state FROM delivery_attempts
+      WHERE transaction_id = ? AND recipient_role = 'PRODUCTION'
+      ORDER BY attempt_number
+    `).bind(release.transactionId).all()).toMatchObject({
+      results: [
+        { attempt_number: 1, delivery_state: "FAILED" },
+        { attempt_number: 2, delivery_state: "ACCEPTED" },
+      ],
+    });
+  });
+
   it("retries an unaccepted first attempt without consuming a retry", async () => {
     const release = await finalizeRelease(env.TEST_DB, env.TEST_BUCKET, {
       pdfBytes: PDF_BYTES,
