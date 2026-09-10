@@ -97,8 +97,8 @@ export async function handleProviderAttachmentRequest(
   environment: ProviderAttachmentEnvironment,
   now: number = Date.now(),
 ): Promise<Response> {
-  if (request.method !== "GET") {
-    return new Response(null, { status: 405, headers: { ...NO_STORE_HEADERS, allow: "GET" } });
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return new Response(null, { status: 405, headers: { ...NO_STORE_HEADERS, allow: "GET, HEAD" } });
   }
   if (!Number.isSafeInteger(now) || now < 0) return serviceUnavailable();
   const url = new URL(request.url);
@@ -161,7 +161,7 @@ export async function handleProviderAttachmentRequest(
         pdfBytes.fill(0);
         return hiddenNotFound();
       }
-      return new Response(pdfBytes.buffer as ArrayBuffer, {
+      return new Response(request.method === "HEAD" ? null : pdfBytes.buffer as ArrayBuffer, {
         headers: {
           ...NO_STORE_HEADERS,
           "content-type": "application/pdf",

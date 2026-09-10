@@ -65,8 +65,8 @@ async function fixture(role: "PRODUCTION" | "SIGNER" = "PRODUCTION") {
   return { release, attemptId: attempt!.id, ticket, documentHash };
 }
 
-function request(ticket: string, hostname = "sealproof.example") {
-  return new Request(`https://${hostname}/api/provider/attachments/${ticket}`);
+function request(ticket: string, hostname = "sealproof.example", method = "GET") {
+  return new Request(`https://${hostname}/api/provider/attachments/${ticket}`, { method });
 }
 
 describe("provider attachment ticket and retrieval", () => {
@@ -101,6 +101,18 @@ describe("provider attachment ticket and retrieval", () => {
     );
     expect((await handleProviderAttachmentRequest(request(value.ticket), ENVIRONMENT, NOW + 3)).status)
       .toBe(404);
+  });
+
+  it("supports Resend's validated HEAD probe without returning document bytes", async () => {
+    const value = await fixture("PRODUCTION");
+    const response = await handleProviderAttachmentRequest(
+      request(value.ticket, "sealproof.example", "HEAD"), ENVIRONMENT, NOW + 1,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+    expect(response.headers.get("content-length")).toBe(String(PDF_BYTES.byteLength));
+    expect(response.headers.get("x-sealproof-sha256")).toBe(value.documentHash);
+    expect((await response.arrayBuffer()).byteLength).toBe(0);
   });
 
   it("conceals altered, expired, cross-host, and role-mismatched tickets", async () => {
