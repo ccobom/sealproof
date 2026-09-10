@@ -105,6 +105,10 @@ describe("browser finalization client", () => {
       signerDeliveryOutcome: "PENDING",
       productionRetriesRemaining: 2,
       signerRetriesRemaining: 2,
+      productionSubmissionFailure: null,
+      signerSubmissionFailure: null,
+      productionSubmissionState: "PENDING_SUBMISSION",
+      signerSubmissionState: "PENDING_SUBMISSION",
       failureCategory: null,
       expiresAt: 7_202_000,
     }));
@@ -148,6 +152,10 @@ describe("browser finalization client", () => {
       signerDeliveryOutcome: "PENDING",
       productionRetriesRemaining: 2,
       signerRetriesRemaining: 2,
+      productionSubmissionFailure: null,
+      signerSubmissionFailure: null,
+      productionSubmissionState: "PENDING_SUBMISSION",
+      signerSubmissionState: "PENDING_SUBMISSION",
       failureCategory: null,
       expiresAt: 7_202_000,
     }))).rejects.toMatchObject({ stage: "status", status: 200 });

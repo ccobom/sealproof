@@ -129,8 +129,7 @@ export async function handleRetryDeliveryRequest(
     }
     latest = await latestAttempt(environment.RELEASE_DB, transactionId, role);
   }
-  if (!latest || latest.attempt_number < 2
-    || !["PENDING_SUBMISSION", "ACCEPTED"].includes(latest.delivery_state)) {
+  if (!latest || !["PENDING_SUBMISSION", "ACCEPTED"].includes(latest.delivery_state)) {
     return error("NOT_RETRYABLE", 409);
   }
 

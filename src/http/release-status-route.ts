@@ -16,6 +16,10 @@ interface StatusRow {
   expires_at: number;
   production_attempts: number;
   signer_attempts: number;
+  production_submission_failure: string | null;
+  signer_submission_failure: string | null;
+  production_submission_state: string | null;
+  signer_submission_state: string | null;
 }
 
 export interface ReleaseStatusEnvironment {
@@ -60,7 +64,19 @@ export async function handleReleaseStatusRequest(
         AS production_attempts,
       (SELECT COUNT(*) FROM delivery_attempts da
         WHERE da.transaction_id = tr.transaction_id AND da.recipient_role = 'SIGNER')
-        AS signer_attempts
+        AS signer_attempts,
+      (SELECT da.submission_failure_category FROM delivery_attempts da
+        WHERE da.transaction_id = tr.transaction_id AND da.recipient_role = 'PRODUCTION'
+        ORDER BY da.attempt_number DESC LIMIT 1) AS production_submission_failure,
+      (SELECT da.submission_failure_category FROM delivery_attempts da
+        WHERE da.transaction_id = tr.transaction_id AND da.recipient_role = 'SIGNER'
+        ORDER BY da.attempt_number DESC LIMIT 1) AS signer_submission_failure,
+      (SELECT da.delivery_state FROM delivery_attempts da
+        WHERE da.transaction_id = tr.transaction_id AND da.recipient_role = 'PRODUCTION'
+        ORDER BY da.attempt_number DESC LIMIT 1) AS production_submission_state,
+      (SELECT da.delivery_state FROM delivery_attempts da
+        WHERE da.transaction_id = tr.transaction_id AND da.recipient_role = 'SIGNER'
+        ORDER BY da.attempt_number DESC LIMIT 1) AS signer_submission_state
     FROM temporary_releases tr
     JOIN audit_releases ar ON ar.transaction_id = tr.transaction_id
     WHERE tr.transaction_id = ? AND tr.status_capability_hash = ?
@@ -81,6 +97,10 @@ export async function handleReleaseStatusRequest(
     signerRetriesRemaining: Math.max(
       0, MAXIMUM_DELIVERY_ATTEMPTS_PER_ROLE - row.signer_attempts,
     ),
+    productionSubmissionFailure: row.production_submission_failure,
+    signerSubmissionFailure: row.signer_submission_failure,
+    productionSubmissionState: row.production_submission_state,
+    signerSubmissionState: row.signer_submission_state,
     failureCategory: row.failure_category,
     expiresAt: row.expires_at,
   }, { headers: NO_STORE_HEADERS });

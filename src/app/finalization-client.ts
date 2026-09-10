@@ -25,6 +25,30 @@ const statusResponseSchema = z.strictObject({
   signerDeliveryOutcome: z.enum(["PENDING", "DELIVERED", "FAILED", "UNRESOLVED"]),
   productionRetriesRemaining: z.number().int().min(0).max(2),
   signerRetriesRemaining: z.number().int().min(0).max(2),
+  productionSubmissionFailure: z.enum([
+    "attachment_preparation_failed",
+    "provider_authentication",
+    "provider_invalid_request",
+    "provider_rate_limited",
+    "provider_unavailable",
+    "provider_malformed_response",
+    "provider_submission_failed",
+  ]).nullable(),
+  signerSubmissionFailure: z.enum([
+    "attachment_preparation_failed",
+    "provider_authentication",
+    "provider_invalid_request",
+    "provider_rate_limited",
+    "provider_unavailable",
+    "provider_malformed_response",
+    "provider_submission_failed",
+  ]).nullable(),
+  productionSubmissionState: z.enum([
+    "PENDING_SUBMISSION", "ACCEPTED", "DELAYED", "DELIVERED", "FAILED", "UNRESOLVED_CONFLICT",
+  ]).nullable(),
+  signerSubmissionState: z.enum([
+    "PENDING_SUBMISSION", "ACCEPTED", "DELAYED", "DELIVERED", "FAILED", "UNRESOLVED_CONFLICT",
+  ]).nullable(),
   failureCategory: z.enum([
     "delivery_bounced",
     "provider_submission_failed",
@@ -51,7 +75,7 @@ const fakeWebhookResponseSchema = z.strictObject({
 const retryResponseSchema = z.strictObject({
   outcome: z.enum(["accepted", "pending"]),
   recipientRole: z.enum(["PRODUCTION", "SIGNER"]),
-  attemptNumber: z.number().int().min(2).safe(),
+  attemptNumber: z.number().int().min(1).safe(),
 });
 
 export type LocalFakeDeliveryEvent = "email.delivered" | "email.bounced";

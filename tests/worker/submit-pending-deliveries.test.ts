@@ -167,6 +167,14 @@ describe("pending delivery submission coordinator", () => {
       { recipient_role: "PRODUCTION", delivery_state: "PENDING_SUBMISSION", provider_message_id: null },
       expect.objectContaining({ recipient_role: "SIGNER", delivery_state: "ACCEPTED" }),
     ]);
+    expect(await env.TEST_DB.prepare(`
+      SELECT submission_failure_category, submission_failed_at
+      FROM delivery_attempts
+      WHERE transaction_id = ? AND recipient_role = 'PRODUCTION'
+    `).bind(sealed.transactionId).first()).toEqual({
+      submission_failure_category: "provider_submission_failed",
+      submission_failed_at: NOW + 1,
+    });
   });
 
   it("submits nothing after the immutable release expiry", async () => {

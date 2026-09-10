@@ -605,7 +605,7 @@ export function App() {
                 ? "Resend reports that both recipient copies were delivered. Please hand the device back to production."
                 : releaseStatus?.releaseState === "DELIVERY_FAILED"
                   ? "The exact PDF remains available until closeout or its original expiration. Please hand the device back to production to choose the next action."
-                  : "SealProof independently matched the PDF hash, stored an encrypted temporary copy, and submitted separate recipient deliveries. This page checks for authenticated delivery updates automatically."}</p>
+                : "SealProof independently matched the PDF hash and stored an encrypted temporary copy. It is attempting separate recipient submissions and checks for authenticated delivery updates automatically."}</p>
             <div className="handoff-card">
               <p><strong>Transaction:</strong> <code className="inline-hash">{finalizedRelease?.transactionId}</code></p>
               <p><strong>Worker status:</strong> {releaseStatus?.releaseState ?? "Unavailable"}</p>
@@ -663,7 +663,21 @@ export function App() {
                 </button>
               </div>
             ) : releaseStatus?.releaseState === "SEALED_AWAITING_DELIVERY" ? (
-              <p className="privacy-note" role="status">Checking authenticated delivery status every few seconds. You may leave this page open; access still expires at the original two-hour deadline.</p>
+              <>
+                {(releaseStatus.productionSubmissionState === "PENDING_SUBMISSION"
+                  || releaseStatus.signerSubmissionState === "PENDING_SUBMISSION") && (
+                  <div className="preview-actions">
+                    {releaseStatus.productionSubmissionState === "PENDING_SUBMISSION" && (
+                      <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("PRODUCTION")}>Retry production submission</button>
+                    )}
+                    {releaseStatus.signerSubmissionState === "PENDING_SUBMISSION" && (
+                      <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("SIGNER")}>Retry signer submission</button>
+                    )}
+                    <p className="privacy-note">A submission step did not complete. The exact PDF, hash, and original expiration are unchanged; retrying uses the existing attempt and idempotency key.</p>
+                  </div>
+                )}
+                <p className="privacy-note" role="status">Checking authenticated delivery status every few seconds. You may leave this page open; access still expires at the original two-hour deadline.</p>
+              </>
             ) : (
               <button className="primary-button" type="button" onClick={() => show("productionCloseout")}>I am production and have the device</button>
             )}

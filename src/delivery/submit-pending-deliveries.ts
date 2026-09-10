@@ -1,6 +1,7 @@
 import type { KeyEncryptionKeys } from "../crypto/temporary-pii";
 import { loadTemporaryEmailAddresses } from "../release/release-state";
 import type { DeliveryProvider, DeliveryRecipientRole } from "./delivery-provider";
+import { ResendDeliveryError } from "./resend-delivery-provider";
 import {
   issueProviderAttachmentTicket,
   type ProviderAttachmentTicketKeys,
@@ -31,6 +32,28 @@ export interface PendingDeliveryResult {
   submitted: DeliveryRecipientRole[];
   alreadySubmitted: DeliveryRecipientRole[];
   failed: DeliveryRecipientRole[];
+}
+
+export type SubmissionFailureCategory =
+  | "attachment_preparation_failed"
+  | "provider_authentication"
+  | "provider_invalid_request"
+  | "provider_rate_limited"
+  | "provider_unavailable"
+  | "provider_malformed_response"
+  | "provider_submission_failed";
+
+function submissionFailureCategory(
+  error: unknown,
+  providerSubmissionStarted: boolean,
+): SubmissionFailureCategory {
+  if (!providerSubmissionStarted) return "attachment_preparation_failed";
+  if (!(error instanceof ResendDeliveryError)) return "provider_submission_failed";
+  if (error.category === "AUTHENTICATION") return "provider_authentication";
+  if (error.category === "INVALID_REQUEST") return "provider_invalid_request";
+  if (error.category === "RATE_LIMITED") return "provider_rate_limited";
+  if (error.category === "PROVIDER_UNAVAILABLE") return "provider_unavailable";
+  return "provider_malformed_response";
 }
 
 function idempotencyKey(
@@ -79,6 +102,7 @@ export async function submitPendingDeliveries(
 
   for (const attempt of attempts.results) {
     const role = attempt.recipient_role;
+    let providerSubmissionStarted = false;
     try {
       const activeKey = dependencies.providerAttachmentKeys[dependencies.providerAttachmentKeyVersion];
       if (!activeKey) throw new Error("Missing active provider attachment key");
@@ -116,6 +140,7 @@ export async function submitPendingDeliveries(
         `/api/provider/attachments/${ticket}`,
         origin,
       ).toString();
+      providerSubmissionStarted = true;
       const receipt = await dependencies.provider.submit({
         recipientRole: role,
         recipientEmail: role === "PRODUCTION"
@@ -131,7 +156,8 @@ export async function submitPendingDeliveries(
       }
       const updated = await db.prepare(`
         UPDATE delivery_attempts
-        SET provider_message_id = ?, delivery_state = 'ACCEPTED'
+        SET provider_message_id = ?, delivery_state = 'ACCEPTED',
+          submission_failure_category = NULL, submission_failed_at = NULL
         WHERE id = ? AND transaction_id = ? AND recipient_role = ?
           AND delivery_state = 'PENDING_SUBMISSION' AND provider_message_id IS NULL
       `).bind(receipt.providerMessageId, attempt.id, transactionId, role).run();
@@ -145,7 +171,19 @@ export async function submitPendingDeliveries(
         if (!recovered) throw new Error("SUBMISSION_STATE_CONFLICT");
         result.alreadySubmitted.push(role);
       }
-    } catch {
+    } catch (error) {
+      await db.prepare(`
+        UPDATE delivery_attempts
+        SET submission_failure_category = ?, submission_failed_at = ?
+        WHERE id = ? AND transaction_id = ? AND recipient_role = ?
+          AND delivery_state = 'PENDING_SUBMISSION' AND provider_message_id IS NULL
+      `).bind(
+        submissionFailureCategory(error, providerSubmissionStarted),
+        now,
+        attempt.id,
+        transactionId,
+        role,
+      ).run();
       result.failed.push(role);
     }
   }

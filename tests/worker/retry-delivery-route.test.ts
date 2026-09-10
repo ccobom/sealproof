@@ -107,6 +107,38 @@ async function bounceLatestSigner(transactionId: string, suffix: string, at: num
 }
 
 describe("delivery retry route", () => {
+  it("retries an unaccepted first attempt without consuming a retry", async () => {
+    const release = await finalizeRelease(env.TEST_DB, env.TEST_BUCKET, {
+      pdfBytes: PDF_BYTES,
+      browserDocumentHash: await sha256Hex(PDF_BYTES),
+      workflowVersion: "retry-v1",
+      emailAddresses: {
+        productionEmail: "producer@example.invalid",
+        signerEmail: "signer@example.invalid",
+      },
+      keyVersion: "pdf-v1",
+      keyEncryptionKey: PDF_KEY,
+    }, () => NOW);
+    if (release.outcome !== "sealed") throw new Error("Could not create pending fixture");
+
+    const response = await handleRetryDeliveryRequest(
+      request(release.transactionId, release.downloadCapability),
+      ENVIRONMENT,
+      NOW + 1,
+      runLocalFakeRetry,
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      outcome: "accepted",
+      recipientRole: "SIGNER",
+      attemptNumber: 1,
+    });
+    expect((await env.TEST_DB.prepare(`
+      SELECT COUNT(*) AS count FROM delivery_attempts
+      WHERE transaction_id = ? AND recipient_role = 'SIGNER'
+    `).bind(release.transactionId).first<{ count: number }>())?.count).toBe(1);
+  });
+
   it("creates one new role attempt while preserving the PDF identity and expiry", async () => {
     const release = await failedRelease();
     const before = await env.TEST_DB.prepare(`

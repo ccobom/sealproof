@@ -75,6 +75,10 @@ describe("capability-authorized release lifecycle routes", () => {
       signerDeliveryOutcome: "PENDING",
       productionRetriesRemaining: 2,
       signerRetriesRemaining: 2,
+      productionSubmissionFailure: null,
+      signerSubmissionFailure: null,
+      productionSubmissionState: "PENDING_SUBMISSION",
+      signerSubmissionState: "PENDING_SUBMISSION",
       failureCategory: null,
       expiresAt: release.expiresAt,
     });
