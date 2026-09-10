@@ -2,6 +2,10 @@ import { createSealProofWorker } from "./app";
 import { createProductionDeliveryHandlers } from "./production-delivery";
 import { handleResendWebhookRequest } from "../http/resend-webhook-route";
 import type { ProductionDeliveryEnvironment } from "./production-delivery";
+import {
+  validCleanupBindings,
+  validProductionConfiguration,
+} from "./production-configuration";
 
 type NetworkFetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -25,7 +29,18 @@ export function createProductionWorker(dependencies: ProductionWorkerDependencie
   });
   return {
     async fetch(request: Request, environment: ProductionEnvironment): Promise<Response> {
-      if (new URL(request.url).pathname === "/api/webhooks/resend") {
+      const path = new URL(request.url).pathname;
+      if (path.startsWith("/api/") && !validProductionConfiguration(environment)) {
+        return Response.json({ error: "SERVICE_UNAVAILABLE" }, {
+          status: 503,
+          headers: {
+            "cache-control": "private, no-store, max-age=0",
+            pragma: "no-cache",
+            "x-content-type-options": "nosniff",
+          },
+        });
+      }
+      if (path === "/api/webhooks/resend") {
         return handleResendWebhookRequest(request, environment, now());
       }
       return application.fetch(request, environment);
@@ -35,7 +50,9 @@ export function createProductionWorker(dependencies: ProductionWorkerDependencie
       environment: ProductionEnvironment,
       context: ExecutionContext,
     ): void {
-      application.scheduled(controller, environment, context);
+      if (validCleanupBindings(environment)) {
+        application.scheduled(controller, environment, context);
+      }
     },
   } satisfies ExportedHandler<ProductionEnvironment>;
 }

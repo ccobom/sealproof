@@ -1,0 +1,48 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // INTENTIONALLY NOT DEPLOYABLE until both placeholders are replaced and reviewed.
+  "name": "sealproof-production",
+  "main": "src/worker/production-app.ts",
+  "compatibility_date": "2026-09-09",
+  "workers_dev": false,
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  "assets": {
+    "directory": "./dist/app",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "RELEASE_DB",
+      "database_name": "sealproof-production",
+      "database_id": "REPLACE_WITH_D1_DATABASE_UUID",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "RELEASE_DOCUMENTS",
+      "bucket_name": "sealproof-production-documents"
+    }
+  ],
+  "vars": {
+    "EXPECTED_HOSTNAME": "REPLACE_WITH_PRODUCTION_HOSTNAME",
+    "ACTIVE_WORKFLOW_VERSION": "release-v1",
+    "ACTIVE_KEY_VERSION": "pdf-v1",
+    "ACTIVE_TICKET_KEY_VERSION": "ticket-v1",
+    "ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION": "provider-v1",
+    "RESEND_FROM": "REPLACE_WITH_VERIFIED_RESEND_FROM_ADDRESS"
+  },
+  "secrets": {
+    "required": [
+      "TURNSTILE_SECRET_KEY",
+      "KEY_ENCRYPTION_KEY_BASE64",
+      "TICKET_ENCRYPTION_KEY_BASE64",
+      "PROVIDER_ATTACHMENT_KEYS_JSON",
+      "RESEND_API_KEY",
+      "RESEND_WEBHOOK_SECRET"
+    ]
+  }
+}

@@ -8,8 +8,12 @@ import {
 } from "../../src/worker/production-app";
 
 const SECRET = "whsec_c2VhbHByb29mLXByb2R1Y3Rpb24tdGVzdA==";
-const ORIGIN = "https://sealproof.example";
+const ORIGIN = "https://app.sealproof.test";
 const NOW = Date.now();
+
+function base64(fill: number): string {
+  return btoa(String.fromCharCode(...new Uint8Array(32).fill(fill)));
+}
 
 function signedRequest(rawBody: string, secret = SECRET): Request {
   const id = "msg_route_test_1";
@@ -29,7 +33,18 @@ function signedRequest(rawBody: string, secret = SECRET): Request {
 function environment(secret = SECRET) {
   return {
     RELEASE_DB: env.TEST_DB,
-    EXPECTED_HOSTNAME: "sealproof.example",
+    RELEASE_DOCUMENTS: env.TEST_BUCKET,
+    TURNSTILE_SECRET_KEY: "0x4AAAA-synthetic-turnstile-secret",
+    EXPECTED_HOSTNAME: "app.sealproof.test",
+    ACTIVE_WORKFLOW_VERSION: "release-v1",
+    ACTIVE_KEY_VERSION: "pdf-v1",
+    KEY_ENCRYPTION_KEY_BASE64: base64(1),
+    ACTIVE_TICKET_KEY_VERSION: "ticket-v1",
+    TICKET_ENCRYPTION_KEY_BASE64: base64(2),
+    ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION: "provider-v1",
+    PROVIDER_ATTACHMENT_KEYS_JSON: JSON.stringify({ "provider-v1": base64(3) }),
+    RESEND_API_KEY: "re_synthetic_production_key",
+    RESEND_FROM: "SealProof <releases@sealproof.test>",
     RESEND_WEBHOOK_SECRET: secret,
   };
 }
