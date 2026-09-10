@@ -3,8 +3,8 @@ import { PDFDocument } from "pdf-lib";
 import { beforeAll, describe, expect, it } from "vitest";
 import { cleanupRelease } from "../../src/cleanup/release-cleanup";
 import {
-  issueProviderAttachmentTicket,
-  openProviderAttachmentTicket,
+  hashProviderAttachmentCapability,
+  issueProviderAttachmentCapability,
 } from "../../src/delivery/provider-attachment-ticket";
 import { sha256Hex } from "../../src/document/hash";
 import { handleProviderAttachmentRequest } from "../../src/http/provider-attachment-route";
@@ -55,14 +55,17 @@ async function fixture(role: "PRODUCTION" | "SIGNER" = "PRODUCTION") {
   const attempt = await env.TEST_DB.prepare(`
     SELECT id FROM delivery_attempts WHERE transaction_id = ? AND recipient_role = ?
   `).bind(release.transactionId, role).first<{ id: number }>();
-  const ticket = await issueProviderAttachmentTicket({
-    transactionId: release.transactionId,
+  const issued = await issueProviderAttachmentCapability();
+  await env.TEST_DB.prepare(`
+    UPDATE delivery_attempts SET provider_capability_hash = ? WHERE id = ?
+  `).bind(issued.capabilityHash, attempt!.id).run();
+  return {
+    release,
     attemptId: attempt!.id,
-    recipientRole: role,
+    capability: issued.capability,
+    capabilityHash: issued.capabilityHash,
     documentHash,
-    expiresAt: release.expiresAt,
-  }, PROVIDER_VERSION, PROVIDER_KEY, NOW);
-  return { release, attemptId: attempt!.id, ticket, documentHash };
+  };
 }
 
 function request(ticket: string, hostname = "sealproof.example", method = "GET") {
@@ -70,27 +73,21 @@ function request(ticket: string, hostname = "sealproof.example", method = "GET")
 }
 
 describe("provider attachment ticket and retrieval", () => {
-  it("keeps role-scoped authorization recoverable without storing the bearer", async () => {
+  it("stores only the hash of a short random provider capability", async () => {
     const value = await fixture();
-    expect(value.ticket).not.toContain("producer@example.invalid");
-    expect(value.ticket).not.toContain(value.release.transactionId);
-    const opened = await openProviderAttachmentTicket(
-      value.ticket, { [PROVIDER_VERSION]: PROVIDER_KEY }, NOW + 1,
-    );
-    expect(opened).toMatchObject({
-      valid: true,
-      payload: {
-        transactionId: value.release.transactionId,
-        attemptId: value.attemptId,
-        recipientRole: "PRODUCTION",
-        documentHash: value.documentHash,
-      },
-    });
+    expect(value.capability).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(value.capability).not.toContain(value.release.transactionId);
+    expect(await hashProviderAttachmentCapability(value.capability)).toBe(value.capabilityHash);
+    const stored = await env.TEST_DB.prepare(`
+      SELECT provider_capability_hash FROM delivery_attempts WHERE id = ?
+    `).bind(value.attemptId).first<{ provider_capability_hash: string }>();
+    expect(stored?.provider_capability_hash).toBe(value.capabilityHash);
+    expect(JSON.stringify(stored)).not.toContain(value.capability);
   });
 
   it("returns the exact decrypted PDF only while the attempt and release remain active", async () => {
     const value = await fixture("SIGNER");
-    const response = await handleProviderAttachmentRequest(request(value.ticket), ENVIRONMENT, NOW + 1);
+    const response = await handleProviderAttachmentRequest(request(value.capability), ENVIRONMENT, NOW + 1);
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(response.headers.get("x-sealproof-sha256")).toBe(value.documentHash);
@@ -99,14 +96,14 @@ describe("provider attachment ticket and retrieval", () => {
     await cleanupRelease(
       env.TEST_DB, env.TEST_BUCKET, value.release.transactionId, "production_closeout", NOW + 2,
     );
-    expect((await handleProviderAttachmentRequest(request(value.ticket), ENVIRONMENT, NOW + 3)).status)
+    expect((await handleProviderAttachmentRequest(request(value.capability), ENVIRONMENT, NOW + 3)).status)
       .toBe(404);
   });
 
   it("supports Resend's validated HEAD probe without returning document bytes", async () => {
     const value = await fixture("PRODUCTION");
     const response = await handleProviderAttachmentRequest(
-      request(value.ticket, "sealproof.example", "HEAD"), ENVIRONMENT, NOW + 1,
+      request(value.capability, "sealproof.example", "HEAD"), ENVIRONMENT, NOW + 1,
     );
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("application/pdf");
@@ -115,21 +112,16 @@ describe("provider attachment ticket and retrieval", () => {
     expect((await response.arrayBuffer()).byteLength).toBe(0);
   });
 
-  it("conceals altered, expired, cross-host, and role-mismatched tickets", async () => {
+  it("conceals altered, expired, cross-host, and unknown capabilities", async () => {
     const value = await fixture();
-    const altered = value.ticket.slice(0, -1) + (value.ticket.endsWith("A") ? "B" : "A");
-    const wrongRoleTicket = await issueProviderAttachmentTicket({
-      transactionId: value.release.transactionId,
-      attemptId: value.attemptId,
-      recipientRole: "SIGNER",
-      documentHash: value.documentHash,
-      expiresAt: value.release.expiresAt,
-    }, PROVIDER_VERSION, PROVIDER_KEY, NOW);
+    const altered = value.capability.slice(0, -1)
+      + (value.capability.endsWith("A") ? "B" : "A");
+    const unknown = (await issueProviderAttachmentCapability()).capability;
     const responses = [
       await handleProviderAttachmentRequest(request(altered), ENVIRONMENT, NOW + 1),
-      await handleProviderAttachmentRequest(request(value.ticket), ENVIRONMENT, value.release.expiresAt),
-      await handleProviderAttachmentRequest(request(value.ticket, "attacker.example"), ENVIRONMENT, NOW + 1),
-      await handleProviderAttachmentRequest(request(wrongRoleTicket), ENVIRONMENT, NOW + 1),
+      await handleProviderAttachmentRequest(request(value.capability), ENVIRONMENT, value.release.expiresAt),
+      await handleProviderAttachmentRequest(request(value.capability, "attacker.example"), ENVIRONMENT, NOW + 1),
+      await handleProviderAttachmentRequest(request(unknown), ENVIRONMENT, NOW + 1),
     ];
     expect(responses.map(({ status }) => status)).toEqual([404, 404, 404, 404]);
   });

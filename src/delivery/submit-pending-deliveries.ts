@@ -3,12 +3,13 @@ import { loadTemporaryEmailAddresses } from "../release/release-state";
 import type { DeliveryProvider, DeliveryRecipientRole } from "./delivery-provider";
 import { ResendDeliveryError } from "./resend-delivery-provider";
 import {
-  issueProviderAttachmentTicket,
+  hashProviderAttachmentCapability,
+  issueProviderAttachmentCapability,
   type ProviderAttachmentTicketKeys,
 } from "./provider-attachment-ticket";
 import {
-  decryptProviderTicketFromStorage,
-  encryptProviderTicketForStorage,
+  decryptProviderCapabilityFromStorage,
+  encryptProviderCapabilityForStorage,
 } from "./provider-ticket-storage";
 
 interface PendingAttemptRow {
@@ -18,6 +19,7 @@ interface PendingAttemptRow {
   document_hash: string;
   expires_at: number;
   provider_ticket_envelope: string | null;
+  provider_capability_hash: string | null;
 }
 
 export interface PendingDeliveryDependencies {
@@ -84,6 +86,7 @@ export async function submitPendingDeliveries(
 
   const attempts = await db.prepare(`
     SELECT da.id, da.recipient_role, da.attempt_number, da.provider_ticket_envelope,
+      da.provider_capability_hash,
       ar.document_hash, tr.expires_at
     FROM delivery_attempts da
     JOIN temporary_releases tr ON tr.transaction_id = da.transaction_id
@@ -108,37 +111,47 @@ export async function submitPendingDeliveries(
       const activeKey = dependencies.providerAttachmentKeys[dependencies.providerAttachmentKeyVersion];
       if (!activeKey) throw new Error("Missing active provider attachment key");
       let envelope = attempt.provider_ticket_envelope;
+      let capabilityHash = attempt.provider_capability_hash;
+      if ((envelope === null) !== (capabilityHash === null)) {
+        throw new Error("Incomplete provider capability state");
+      }
       if (envelope === null) {
-        const issuedTicket = await issueProviderAttachmentTicket({
-          transactionId,
-          attemptId: attempt.id,
-          recipientRole: role,
-          documentHash: attempt.document_hash,
-          expiresAt: attempt.expires_at,
-        }, dependencies.providerAttachmentKeyVersion, activeKey, now);
-        const proposedEnvelope = await encryptProviderTicketForStorage(
-          issuedTicket,
+        const issued = await issueProviderAttachmentCapability();
+        const proposedEnvelope = await encryptProviderCapabilityForStorage(
+          issued.capability,
           dependencies.providerAttachmentKeyVersion,
           activeKey,
           transactionId,
           attempt.id,
         );
         await db.prepare(`
-          UPDATE delivery_attempts SET provider_ticket_envelope = ?
+          UPDATE delivery_attempts
+          SET provider_ticket_envelope = ?, provider_capability_hash = ?
           WHERE id = ? AND provider_ticket_envelope IS NULL
+            AND provider_capability_hash IS NULL
             AND delivery_state = 'PENDING_SUBMISSION'
-        `).bind(proposedEnvelope, attempt.id).run();
+        `).bind(proposedEnvelope, issued.capabilityHash, attempt.id).run();
         const stored = await db.prepare(`
-          SELECT provider_ticket_envelope FROM delivery_attempts WHERE id = ?
-        `).bind(attempt.id).first<{ provider_ticket_envelope: string | null }>();
+          SELECT provider_ticket_envelope, provider_capability_hash
+          FROM delivery_attempts WHERE id = ?
+        `).bind(attempt.id).first<{
+          provider_ticket_envelope: string | null;
+          provider_capability_hash: string | null;
+        }>();
         envelope = stored?.provider_ticket_envelope ?? null;
+        capabilityHash = stored?.provider_capability_hash ?? null;
       }
-      if (envelope === null) throw new Error("Provider ticket was not persisted");
-      const ticket = await decryptProviderTicketFromStorage(
+      if (envelope === null || capabilityHash === null) {
+        throw new Error("Provider capability was not persisted");
+      }
+      const capability = await decryptProviderCapabilityFromStorage(
         envelope, dependencies.providerAttachmentKeys, transactionId, attempt.id,
       );
+      if (await hashProviderAttachmentCapability(capability) !== capabilityHash) {
+        throw new Error("Provider capability integrity mismatch");
+      }
       const attachmentUrl = new URL(
-        `/api/provider/attachments/${ticket}`,
+        `/api/provider/attachments/${capability}`,
         origin,
       ).toString();
       providerSubmissionStarted = true;

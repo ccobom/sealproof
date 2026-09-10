@@ -65,7 +65,7 @@ export function createSealProofWorker(dependencies: SealProofWorkerDependencies 
       if (/^\/api\/releases\/[A-Za-z0-9_-]{16,128}$/.test(path)) {
         return handleCloseoutReleaseRequest(request, environment, now());
       }
-      if (/^\/api\/provider\/attachments\/[A-Za-z0-9._-]{1,2048}$/.test(path)) {
+      if (/^\/api\/provider\/attachments\/[A-Za-z0-9_-]{43}$/.test(path)) {
         return handleProviderAttachmentRequest(request, environment, now());
       }
       if (path.startsWith("/api/")) {

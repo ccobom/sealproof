@@ -5,8 +5,8 @@ import type { DeliveryProvider } from "../../src/delivery/delivery-provider";
 import { FakeDeliveryProvider } from "../../src/delivery/fake-delivery-provider";
 import { submitPendingDeliveries } from "../../src/delivery/submit-pending-deliveries";
 import {
-  decryptProviderTicketFromStorage,
-  encryptProviderTicketForStorage,
+  decryptProviderCapabilityFromStorage,
+  encryptProviderCapabilityForStorage,
 } from "../../src/delivery/provider-ticket-storage";
 import { sha256Hex } from "../../src/document/hash";
 import { handleProviderAttachmentRequest } from "../../src/http/provider-attachment-route";
@@ -68,18 +68,18 @@ function dependencies(provider: DeliveryProvider) {
 describe("pending delivery submission coordinator", () => {
   it("encrypts the stored bearer and binds it to exactly one attempt", async () => {
     const ticket = "v1.provider-v1.synthetic-ticket-ciphertext";
-    const envelope = await encryptProviderTicketForStorage(
+    const envelope = await encryptProviderCapabilityForStorage(
       ticket, "provider-v1", PROVIDER_KEY, "transaction_storage_test", 42,
     );
     expect(envelope).not.toContain(ticket);
-    await expect(decryptProviderTicketFromStorage(
+    await expect(decryptProviderCapabilityFromStorage(
       envelope, { "provider-v1": PROVIDER_KEY }, "transaction_storage_test", 42,
     )).resolves.toBe(ticket);
-    await expect(decryptProviderTicketFromStorage(
+    await expect(decryptProviderCapabilityFromStorage(
       envelope, { "provider-v1": PROVIDER_KEY }, "transaction_storage_test", 43,
     )).rejects.toThrow();
     const altered = envelope.slice(0, -1) + (envelope.endsWith("A") ? "B" : "A");
-    await expect(decryptProviderTicketFromStorage(
+    await expect(decryptProviderCapabilityFromStorage(
       altered, { "provider-v1": PROVIDER_KEY }, "transaction_storage_test", 42,
     )).rejects.toThrow();
   });

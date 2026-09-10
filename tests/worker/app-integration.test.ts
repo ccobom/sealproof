@@ -82,7 +82,8 @@ describe("production-shaped local Worker", () => {
     const storedBytes = new Uint8Array(await object!.arrayBuffer());
     expect(new TextDecoder().decode(storedBytes.subarray(0, 5))).not.toBe("%PDF-");
     const attempts = await env.TEST_DB.prepare(`
-      SELECT recipient_role, delivery_state, provider_message_id, provider_ticket_envelope
+      SELECT recipient_role, delivery_state, provider_message_id,
+        provider_ticket_envelope, provider_capability_hash
       FROM delivery_attempts WHERE transaction_id = ? ORDER BY id
     `).bind(result.transactionId).all<Record<string, unknown>>();
     expect(attempts.results).toEqual([
@@ -92,6 +93,7 @@ describe("production-shaped local Worker", () => {
     for (const attempt of attempts.results) {
       expect(attempt.provider_message_id).toMatch(/^fake_[0-9a-f]{32}$/);
       expect(attempt.provider_ticket_envelope).toMatch(/^v1\.provider-v1\./);
+      expect(attempt.provider_capability_hash).toMatch(/^[0-9a-f]{64}$/);
       expect(String(attempt.provider_ticket_envelope)).not.toContain(result.transactionId);
     }
 

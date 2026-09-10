@@ -23,24 +23,24 @@ function decode(value: string): Uint8Array | undefined {
 
 function aad(keyVersion: string, transactionId: string, attemptId: number): Uint8Array {
   return new TextEncoder().encode(
-    `sealproof:provider-ticket-storage:v${VERSION}:${keyVersion}:${transactionId}:${attemptId}`,
+    `sealproof:provider-capability-storage:v${VERSION}:${keyVersion}:${transactionId}:${attemptId}`,
   );
 }
 
 async function key(bytes: Uint8Array, usage: "encrypt" | "decrypt"): Promise<CryptoKey> {
-  if (bytes.byteLength !== 32) throw new Error("Provider ticket storage key must be 32 bytes");
+  if (bytes.byteLength !== 32) throw new Error("Provider capability storage key must be 32 bytes");
   return crypto.subtle.importKey("raw", new Uint8Array(bytes), "AES-GCM", false, [usage]);
 }
 
-export async function encryptProviderTicketForStorage(
-  ticket: string,
+export async function encryptProviderCapabilityForStorage(
+  capability: string,
   keyVersion: string,
   keyBytes: Uint8Array,
   transactionId: string,
   attemptId: number,
 ): Promise<string> {
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(keyVersion)) throw new Error("Invalid key version");
-  const plaintext = new TextEncoder().encode(ticket);
+  const plaintext = new TextEncoder().encode(capability);
   const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
   try {
     const ciphertext = new Uint8Array(await crypto.subtle.encrypt(
@@ -54,21 +54,21 @@ export async function encryptProviderTicketForStorage(
   }
 }
 
-export async function decryptProviderTicketFromStorage(
+export async function decryptProviderCapabilityFromStorage(
   envelope: string,
   keys: ProviderAttachmentTicketKeys,
   transactionId: string,
   attemptId: number,
 ): Promise<string> {
   const parts = envelope.split(".");
-  if (parts.length !== 4 || parts[0] !== `v${VERSION}`) throw new Error("Invalid ticket envelope");
+  if (parts.length !== 4 || parts[0] !== `v${VERSION}`) throw new Error("Invalid capability envelope");
   const [, keyVersion, encodedIv, encodedCiphertext] = parts;
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(keyVersion)) throw new Error("Invalid ticket envelope");
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(keyVersion)) throw new Error("Invalid capability envelope");
   const iv = decode(encodedIv);
   const ciphertext = decode(encodedCiphertext);
   const keyBytes = keys[keyVersion];
   if (!iv || iv.byteLength !== IV_BYTES || !ciphertext || !keyBytes) {
-    throw new Error("Invalid ticket envelope");
+    throw new Error("Invalid capability envelope");
   }
   const plaintext = new Uint8Array(await crypto.subtle.decrypt(
     { name: "AES-GCM", iv, additionalData: aad(keyVersion, transactionId, attemptId) },

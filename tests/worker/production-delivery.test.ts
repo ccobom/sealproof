@@ -74,7 +74,8 @@ describe("production delivery wiring", () => {
       ["signer@example.invalid"],
     ]);
     const attempts = await env.TEST_DB.prepare(`
-      SELECT recipient_role, delivery_state, provider_message_id, provider_ticket_envelope
+      SELECT recipient_role, delivery_state, provider_message_id,
+        provider_ticket_envelope, provider_capability_hash
       FROM delivery_attempts WHERE transaction_id = ? ORDER BY id
     `).bind(transactionId).all<Record<string, unknown>>();
     expect(attempts.results).toEqual([
@@ -91,6 +92,20 @@ describe("production delivery wiring", () => {
     ]);
     expect(JSON.stringify(attempts.results)).not.toContain("re_synthetic_production_key");
     expect(JSON.stringify(attempts.results)).not.toContain("@example.invalid");
+    const attachmentUrls = bodies.map((body) => String(body.attachments[0].path));
+    expect(attachmentUrls).toHaveLength(2);
+    expect(new Set(attachmentUrls).size).toBe(2);
+    for (const url of attachmentUrls) {
+      expect(url).toMatch(
+        /^https:\/\/sealproof\.example\/api\/provider\/attachments\/[A-Za-z0-9_-]{43}$/,
+      );
+      expect(url.length).toBeLessThan(160);
+      const capability = url.slice(url.lastIndexOf("/") + 1);
+      expect(JSON.stringify(attempts.results)).not.toContain(capability);
+    }
+    for (const attempt of attempts.results) {
+      expect(attempt.provider_capability_hash).toMatch(/^[0-9a-f]{64}$/);
+    }
   });
 
   it("fails closed before any provider request when encryption configuration is invalid", async () => {
