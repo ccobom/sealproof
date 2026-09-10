@@ -10,10 +10,7 @@ import {
 import { handleReleaseStatusRequest } from "../http/release-status-route";
 import { handleCloseoutReleaseRequest } from "../http/closeout-release-route";
 import { runScheduledMaintenance } from "../cleanup/scheduled-maintenance";
-import {
-  handleProviderAttachmentRequest,
-  type ProviderAttachmentEnvironment,
-} from "../http/provider-attachment-route";
+import type { ProviderAttachmentEnvironment } from "../http/provider-attachment-route";
 import {
   handleRetryDeliveryRequest,
   type RetryDeliveryHandler,
@@ -64,9 +61,6 @@ export function createSealProofWorker(dependencies: SealProofWorkerDependencies 
       }
       if (/^\/api\/releases\/[A-Za-z0-9_-]{16,128}$/.test(path)) {
         return handleCloseoutReleaseRequest(request, environment, now());
-      }
-      if (/^\/api\/provider\/attachments\/[A-Za-z0-9_-]{43}$/.test(path)) {
-        return handleProviderAttachmentRequest(request, environment, now());
       }
       if (path.startsWith("/api/")) {
         return Response.json({ error: "NOT_FOUND" }, {

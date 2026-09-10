@@ -1,7 +1,6 @@
 import { createSealProofWorker, type SealProofEnvironment } from "./app";
 import { FakeDeliveryProvider } from "../delivery/fake-delivery-provider";
 import { submitPendingDeliveries } from "../delivery/submit-pending-deliveries";
-import { handleProviderAttachmentRequest } from "../http/provider-attachment-route";
 import type { SealedReleaseHandler } from "../http/ticket-finalization-route";
 import type { RetryDeliveryHandler } from "../http/retry-delivery-route";
 import {
@@ -22,60 +21,30 @@ function decodeKey(value: string): Uint8Array | undefined {
   }
 }
 
-function providerKeys(value: string): Record<string, Uint8Array> | undefined {
-  try {
-    const parsed: unknown = JSON.parse(value);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return undefined;
-    const entries = Object.entries(parsed);
-    if (entries.length < 1 || entries.length > 4) return undefined;
-    const keys: Record<string, Uint8Array> = {};
-    for (const [version, encoded] of entries) {
-      if (!/^[A-Za-z0-9_-]{1,128}$/.test(version) || typeof encoded !== "string") return undefined;
-      const key = decodeKey(encoded);
-      if (!key) return undefined;
-      keys[version] = key;
-    }
-    return keys;
-  } catch {
-    return undefined;
-  }
-}
-
 async function submitLocalFakeDelivery(
   transactionId: string,
-  publicOrigin: string,
   submittedAt: number,
   environment: SealProofEnvironment,
 ): Promise<void> {
   const localEnvironment = environment as SealProofEnvironment;
   const piiKey = decodeKey(localEnvironment.KEY_ENCRYPTION_KEY_BASE64);
-  const attachmentKeys = providerKeys(localEnvironment.PROVIDER_ATTACHMENT_KEYS_JSON);
-  const activeAttachmentKey = attachmentKeys?.[
-    localEnvironment.ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION
-  ];
-  if (!piiKey || !attachmentKeys || !activeAttachmentKey) {
-    piiKey?.fill(0);
-    if (attachmentKeys) for (const key of Object.values(attachmentKeys)) key.fill(0);
+  if (!piiKey) {
     throw new Error("Local fake delivery keys are invalid");
   }
   try {
-    const provider = new FakeDeliveryProvider((request) =>
-      handleProviderAttachmentRequest(request, localEnvironment, submittedAt));
+    const provider = new FakeDeliveryProvider();
     await submitPendingDeliveries(
       localEnvironment.RELEASE_DB,
       transactionId,
       {
         provider,
+        documents: localEnvironment.RELEASE_DOCUMENTS,
         keyEncryptionKeys: { [localEnvironment.ACTIVE_KEY_VERSION]: piiKey },
-        providerAttachmentKeyVersion: localEnvironment.ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION,
-        providerAttachmentKeys: attachmentKeys,
-        publicOrigin,
       },
       submittedAt,
     );
   } finally {
     piiKey.fill(0);
-    for (const key of Object.values(attachmentKeys)) key.fill(0);
   }
 }
 
@@ -84,7 +53,6 @@ export const runLocalFakeDelivery: SealedReleaseHandler = async (
   environment,
 ) => submitLocalFakeDelivery(
   notification.transactionId,
-  notification.publicOrigin,
   notification.sealedAt,
   environment as SealProofEnvironment,
 );
@@ -94,7 +62,6 @@ export const runLocalFakeRetry: RetryDeliveryHandler = async (
   environment,
 ) => submitLocalFakeDelivery(
   notification.transactionId,
-  notification.publicOrigin,
   notification.requestedAt,
   environment as SealProofEnvironment,
 );

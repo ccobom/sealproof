@@ -58,10 +58,8 @@ function attachmentEnvironment() {
 function dependencies(provider: DeliveryProvider) {
   return {
     provider,
+    documents: env.TEST_BUCKET,
     keyEncryptionKeys: { "pdf-v1": PDF_KEY },
-    providerAttachmentKeyVersion: "provider-v1",
-    providerAttachmentKeys: { "provider-v1": PROVIDER_KEY },
-    publicOrigin: "https://sealproof.example",
   };
 }
 
@@ -86,11 +84,7 @@ describe("pending delivery submission coordinator", () => {
 
   it("submits two role-specific messages whose fetched attachments are exact matches", async () => {
     const sealed = await release();
-    const attachmentUrls: string[] = [];
-    const provider = new FakeDeliveryProvider((request) => {
-      attachmentUrls.push(request.url);
-      return handleProviderAttachmentRequest(request, attachmentEnvironment(), NOW + 1);
-    });
+    const provider = new FakeDeliveryProvider();
 
     await expect(submitPendingDeliveries(
       env.TEST_DB, sealed.transactionId, dependencies(provider), NOW + 1,
@@ -105,7 +99,6 @@ describe("pending delivery submission coordinator", () => {
       new Set([sealed.documentHash]),
     );
     expect(provider.evidence.every((item) => item.attachmentBytes === PDF_BYTES.byteLength)).toBe(true);
-    expect(new Set(attachmentUrls).size).toBe(2);
 
     const attempts = await env.TEST_DB.prepare(`
       SELECT recipient_role, delivery_state, provider_message_id, provider_event_at
@@ -125,7 +118,6 @@ describe("pending delivery submission coordinator", () => {
       failed: [],
     });
     expect(provider.evidence).toHaveLength(2);
-    expect(attachmentUrls).toHaveLength(2);
 
     await env.TEST_DB.prepare(`
       UPDATE delivery_attempts SET provider_message_id = NULL, delivery_state = 'PENDING_SUBMISSION'
@@ -139,13 +131,11 @@ describe("pending delivery submission coordinator", () => {
       failed: [],
     });
     expect(provider.evidence).toHaveLength(2);
-    expect(attachmentUrls).toHaveLength(2);
   });
 
   it("keeps a failed role pending without preventing the other role's acceptance", async () => {
     const sealed = await release();
-    const exactProvider = new FakeDeliveryProvider((request) =>
-      handleProviderAttachmentRequest(request, attachmentEnvironment(), NOW + 1));
+    const exactProvider = new FakeDeliveryProvider();
     const provider: DeliveryProvider = {
       submit: (input) => input.recipientRole === "PRODUCTION"
         ? Promise.reject(new Error("synthetic rejection"))
@@ -179,9 +169,7 @@ describe("pending delivery submission coordinator", () => {
 
   it("submits nothing after the immutable release expiry", async () => {
     const sealed = await release();
-    const provider = new FakeDeliveryProvider(() => {
-      throw new Error("attachment fetch must not occur");
-    });
+    const provider = new FakeDeliveryProvider();
     await expect(submitPendingDeliveries(
       env.TEST_DB, sealed.transactionId, dependencies(provider), sealed.expiresAt,
     )).resolves.toEqual({ submitted: [], alreadySubmitted: [], failed: [] });

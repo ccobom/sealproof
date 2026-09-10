@@ -4,6 +4,9 @@ import type {
   DeliverySubmission,
   DeliverySubmissionReceipt,
 } from "./delivery-provider";
+import { bytesToBase64 } from "../document/base64";
+import { sha256Hex } from "../document/hash";
+import { validatePdfUpload } from "../document/pdf-contract";
 
 const RESEND_EMAIL_ENDPOINT = "https://api.resend.com/emails";
 const MAXIMUM_RESPONSE_BYTES = 16_384;
@@ -120,6 +123,12 @@ export class ResendDeliveryProvider implements DeliveryProvider {
   }
 
   async submit(input: DeliverySubmission): Promise<DeliverySubmissionReceipt> {
+    const attachmentContract = validatePdfUpload(input.attachmentBytes);
+    if (!attachmentContract.valid
+      || await sha256Hex(input.attachmentBytes) !== input.documentHash) {
+      throw new ResendDeliveryError("INVALID_REQUEST", false);
+    }
+    const attachmentContent = bytesToBase64(input.attachmentBytes);
     let response: Response;
     try {
       response = await this.#fetcher(RESEND_EMAIL_ENDPOINT, {
@@ -141,7 +150,7 @@ export class ResendDeliveryProvider implements DeliveryProvider {
             "Keep this email and attachment for your records.",
           ].join("\n"),
           attachments: [{
-            path: input.attachmentUrl,
+            content: attachmentContent,
             filename: input.attachmentFilename,
           }],
         }),

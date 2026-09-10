@@ -5,8 +5,6 @@ import type {
   DeliverySubmissionReceipt,
 } from "./delivery-provider";
 
-type AttachmentFetcher = (request: Request) => Promise<Response>;
-
 export interface FakeDeliveryEvidence {
   recipientRole: DeliverySubmission["recipientRole"];
   documentHash: string;
@@ -18,13 +16,11 @@ export class FakeDeliveryProvider implements DeliveryProvider {
   readonly evidence: FakeDeliveryEvidence[] = [];
   readonly #receipts = new Map<string, { fingerprint: string; receipt: DeliverySubmissionReceipt }>();
 
-  constructor(private readonly fetchAttachment: AttachmentFetcher) {}
-
   async submit(input: DeliverySubmission): Promise<DeliverySubmissionReceipt> {
     const fingerprint = await sha256Hex(new TextEncoder().encode(JSON.stringify({
       recipientRole: input.recipientRole,
       recipientEmail: input.recipientEmail,
-      attachmentUrl: input.attachmentUrl,
+      attachmentHash: await sha256Hex(input.attachmentBytes),
       attachmentFilename: input.attachmentFilename,
       documentHash: input.documentHash,
     })));
@@ -34,16 +30,9 @@ export class FakeDeliveryProvider implements DeliveryProvider {
       return existing.receipt;
     }
 
-    const response = await this.fetchAttachment(new Request(input.attachmentUrl));
-    if (!response.ok || response.headers.get("content-type") !== "application/pdf") {
-      throw new Error("ATTACHMENT_RETRIEVAL_FAILED");
-    }
-    const bytes = new Uint8Array(await response.arrayBuffer());
+    const bytes = new Uint8Array(input.attachmentBytes);
     const actualHash = await sha256Hex(bytes);
-    if (
-      actualHash !== input.documentHash
-      || response.headers.get("x-sealproof-sha256") !== input.documentHash
-    ) throw new Error("ATTACHMENT_IDENTITY_MISMATCH");
+    if (actualHash !== input.documentHash) throw new Error("ATTACHMENT_IDENTITY_MISMATCH");
 
     const providerMessageId = `fake_${(await sha256Hex(
       new TextEncoder().encode(input.idempotencyKey),

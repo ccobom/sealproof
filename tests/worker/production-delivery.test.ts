@@ -92,20 +92,13 @@ describe("production delivery wiring", () => {
     ]);
     expect(JSON.stringify(attempts.results)).not.toContain("re_synthetic_production_key");
     expect(JSON.stringify(attempts.results)).not.toContain("@example.invalid");
-    const attachmentUrls = bodies.map((body) => String(body.attachments[0].path));
-    expect(attachmentUrls).toHaveLength(2);
-    expect(new Set(attachmentUrls).size).toBe(2);
-    for (const url of attachmentUrls) {
-      expect(url).toMatch(
-        /^https:\/\/sealproof\.example\/api\/provider\/attachments\/[A-Za-z0-9_-]{43}$/,
-      );
-      expect(url.length).toBeLessThan(160);
-      const capability = url.slice(url.lastIndexOf("/") + 1);
-      expect(JSON.stringify(attempts.results)).not.toContain(capability);
-    }
-    for (const attempt of attempts.results) {
-      expect(attempt.provider_capability_hash).toMatch(/^[0-9a-f]{64}$/);
-    }
+    const attachmentContents = bodies.map((body) => String(body.attachments[0].content));
+    expect(attachmentContents).toHaveLength(2);
+    expect(attachmentContents[0]).toBe(attachmentContents[1]);
+    expect(attachmentContents.every((content) => content.length > 0)).toBe(true);
+    expect(bodies.every((body) => body.attachments[0].path === undefined)).toBe(true);
+    expect(attempts.results.every((attempt) => attempt.provider_ticket_envelope === null)).toBe(true);
+    expect(attempts.results.every((attempt) => attempt.provider_capability_hash === null)).toBe(true);
   });
 
   it("fails closed before any provider request when encryption configuration is invalid", async () => {
@@ -117,7 +110,7 @@ describe("production delivery wiring", () => {
       transactionId,
       publicOrigin: "https://sealproof.example",
       sealedAt: NOW + 1,
-    }, environment({ PROVIDER_ATTACHMENT_KEYS_JSON: "{}" }))).rejects.toThrow(
+    }, environment({ KEY_ENCRYPTION_KEY_BASE64: "invalid" }))).rejects.toThrow(
       "Production delivery configuration is invalid",
     );
     expect(fetcher).not.toHaveBeenCalled();

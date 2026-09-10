@@ -1,18 +1,24 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import {
   ResendDeliveryError,
   ResendDeliveryProvider,
 } from "../../src/delivery/resend-delivery-provider";
 import type { DeliverySubmission } from "../../src/delivery/delivery-provider";
+import { sha256Hex } from "../../src/document/hash";
 
-const submission: DeliverySubmission = {
-  recipientRole: "SIGNER",
-  recipientEmail: "signer@example.invalid",
-  attachmentUrl: "https://sealproof.example/api/provider/attachments/encrypted-ticket",
-  attachmentFilename: "sealproof-release.pdf",
-  documentHash: "a".repeat(64),
-  idempotencyKey: "sealproof/transaction_123456/signer/1",
-};
+const ATTACHMENT_BYTES = new TextEncoder().encode("%PDF-synthetic-test");
+let submission: DeliverySubmission;
+
+beforeAll(async () => {
+  submission = {
+    recipientRole: "SIGNER",
+    recipientEmail: "signer@example.invalid",
+    attachmentBytes: ATTACHMENT_BYTES,
+    attachmentFilename: "sealproof-release.pdf",
+    documentHash: await sha256Hex(ATTACHMENT_BYTES),
+    idempotencyKey: "sealproof/transaction_123456/signer/1",
+  };
+});
 
 function provider(fetcher: typeof fetch): ResendDeliveryProvider {
   return new ResendDeliveryProvider({
@@ -71,7 +77,7 @@ describe("Resend delivery provider", () => {
       subject: "Your sealed release from SealProof",
       text: `Your sealed release is attached.\n\nDocument SHA-256: ${submission.documentHash}\nKeep this email and attachment for your records.`,
       attachments: [{
-        path: submission.attachmentUrl,
+        content: btoa(String.fromCharCode(...ATTACHMENT_BYTES)),
         filename: "sealproof-release.pdf",
       }],
     });

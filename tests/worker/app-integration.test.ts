@@ -92,9 +92,8 @@ describe("production-shaped local Worker", () => {
     ]);
     for (const attempt of attempts.results) {
       expect(attempt.provider_message_id).toMatch(/^fake_[0-9a-f]{32}$/);
-      expect(attempt.provider_ticket_envelope).toMatch(/^v1\.provider-v1\./);
-      expect(attempt.provider_capability_hash).toMatch(/^[0-9a-f]{64}$/);
-      expect(String(attempt.provider_ticket_envelope)).not.toContain(result.transactionId);
+      expect(attempt.provider_ticket_envelope).toBeNull();
+      expect(attempt.provider_capability_hash).toBeNull();
     }
 
     const status = await browserFetcher(`/api/releases/${result.transactionId}/status`, {

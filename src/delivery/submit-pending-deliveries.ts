@@ -1,16 +1,9 @@
 import type { KeyEncryptionKeys } from "../crypto/temporary-pii";
+import { decryptTemporaryPdf, type EncryptedTemporaryPdfMetadata } from "../crypto/temporary-pdf";
+import { sha256Hex } from "../document/hash";
 import { loadTemporaryEmailAddresses } from "../release/release-state";
 import type { DeliveryProvider, DeliveryRecipientRole } from "./delivery-provider";
 import { ResendDeliveryError } from "./resend-delivery-provider";
-import {
-  hashProviderAttachmentCapability,
-  issueProviderAttachmentCapability,
-  type ProviderAttachmentTicketKeys,
-} from "./provider-attachment-ticket";
-import {
-  decryptProviderCapabilityFromStorage,
-  encryptProviderCapabilityForStorage,
-} from "./provider-ticket-storage";
 
 interface PendingAttemptRow {
   id: number;
@@ -18,16 +11,22 @@ interface PendingAttemptRow {
   attempt_number: number;
   document_hash: string;
   expires_at: number;
-  provider_ticket_envelope: string | null;
-  provider_capability_hash: string | null;
+  document_size: number;
+  r2_object_key: string;
+  storage_format: string;
+  pdf_envelope_version: number;
+  pdf_key_version: string;
+  pdf_document_iv: string;
+  pdf_wrapped_key_iv: string;
+  pdf_wrapped_data_key: string;
+  stored_ciphertext_size: number;
+  stored_ciphertext_hash: string;
 }
 
 export interface PendingDeliveryDependencies {
   provider: DeliveryProvider;
+  documents: R2Bucket;
   keyEncryptionKeys: KeyEncryptionKeys;
-  providerAttachmentKeyVersion: string;
-  providerAttachmentKeys: ProviderAttachmentTicketKeys;
-  publicOrigin: string;
 }
 
 export interface PendingDeliveryResult {
@@ -73,10 +72,6 @@ export async function submitPendingDeliveries(
   now: number = Date.now(),
 ): Promise<PendingDeliveryResult> {
   if (!Number.isSafeInteger(now) || now < 0) throw new Error("Invalid submission timestamp");
-  const origin = new URL(dependencies.publicOrigin);
-  if (origin.protocol !== "https:" || origin.pathname !== "/" || origin.search || origin.hash) {
-    throw new Error("Provider attachment origin must be an HTTPS origin");
-  }
   const result: PendingDeliveryResult = { submitted: [], alreadySubmitted: [], failed: [] };
   const existing = await db.prepare(`
     SELECT recipient_role FROM delivery_attempts
@@ -85,9 +80,11 @@ export async function submitPendingDeliveries(
   result.alreadySubmitted.push(...existing.results.map((row) => row.recipient_role));
 
   const attempts = await db.prepare(`
-    SELECT da.id, da.recipient_role, da.attempt_number, da.provider_ticket_envelope,
-      da.provider_capability_hash,
-      ar.document_hash, tr.expires_at
+    SELECT da.id, da.recipient_role, da.attempt_number,
+      ar.document_hash, tr.expires_at, tr.document_size, tr.r2_object_key,
+      tr.storage_format, tr.pdf_envelope_version, tr.pdf_key_version,
+      tr.pdf_document_iv, tr.pdf_wrapped_key_iv, tr.pdf_wrapped_data_key,
+      tr.stored_ciphertext_size, tr.stored_ciphertext_hash
     FROM delivery_attempts da
     JOIN temporary_releases tr ON tr.transaction_id = da.transaction_id
     JOIN audit_releases ar ON ar.transaction_id = da.transaction_id
@@ -104,63 +101,59 @@ export async function submitPendingDeliveries(
   );
   if (!addresses) return result;
 
-  for (const attempt of attempts.results) {
-    const role = attempt.recipient_role;
-    let providerSubmissionStarted = false;
-    try {
-      const activeKey = dependencies.providerAttachmentKeys[dependencies.providerAttachmentKeyVersion];
-      if (!activeKey) throw new Error("Missing active provider attachment key");
-      let envelope = attempt.provider_ticket_envelope;
-      let capabilityHash = attempt.provider_capability_hash;
-      if ((envelope === null) !== (capabilityHash === null)) {
-        throw new Error("Incomplete provider capability state");
-      }
-      if (envelope === null) {
-        const issued = await issueProviderAttachmentCapability();
-        const proposedEnvelope = await encryptProviderCapabilityForStorage(
-          issued.capability,
-          dependencies.providerAttachmentKeyVersion,
-          activeKey,
-          transactionId,
-          attempt.id,
-        );
-        await db.prepare(`
-          UPDATE delivery_attempts
-          SET provider_ticket_envelope = ?, provider_capability_hash = ?
-          WHERE id = ? AND provider_ticket_envelope IS NULL
-            AND provider_capability_hash IS NULL
-            AND delivery_state = 'PENDING_SUBMISSION'
-        `).bind(proposedEnvelope, issued.capabilityHash, attempt.id).run();
-        const stored = await db.prepare(`
-          SELECT provider_ticket_envelope, provider_capability_hash
-          FROM delivery_attempts WHERE id = ?
-        `).bind(attempt.id).first<{
-          provider_ticket_envelope: string | null;
-          provider_capability_hash: string | null;
-        }>();
-        envelope = stored?.provider_ticket_envelope ?? null;
-        capabilityHash = stored?.provider_capability_hash ?? null;
-      }
-      if (envelope === null || capabilityHash === null) {
-        throw new Error("Provider capability was not persisted");
-      }
-      const capability = await decryptProviderCapabilityFromStorage(
-        envelope, dependencies.providerAttachmentKeys, transactionId, attempt.id,
-      );
-      if (await hashProviderAttachmentCapability(capability) !== capabilityHash) {
-        throw new Error("Provider capability integrity mismatch");
-      }
-      const attachmentUrl = new URL(
-        `/api/provider/attachments/${capability}`,
-        origin,
-      ).toString();
+  const document = attempts.results[0];
+  let pdfBytes: Uint8Array;
+  let ciphertext: Uint8Array | undefined;
+  try {
+    if (document.storage_format !== "ENCRYPTED_V1" || document.pdf_envelope_version !== 1) {
+      throw new Error("Unsupported temporary PDF format");
+    }
+    const object = await dependencies.documents.get(document.r2_object_key);
+    if (!object) throw new Error("Temporary PDF is unavailable");
+    ciphertext = new Uint8Array(await object.arrayBuffer());
+    if (ciphertext.byteLength !== document.stored_ciphertext_size
+      || await sha256Hex(ciphertext) !== document.stored_ciphertext_hash) {
+      throw new Error("Temporary PDF ciphertext failed integrity validation");
+    }
+    const metadata: EncryptedTemporaryPdfMetadata = {
+      version: 1,
+      keyVersion: document.pdf_key_version,
+      documentIv: document.pdf_document_iv,
+      wrappedKeyIv: document.pdf_wrapped_key_iv,
+      wrappedKey: document.pdf_wrapped_data_key,
+      plaintextBytes: document.document_size,
+    };
+    pdfBytes = await decryptTemporaryPdf(
+      ciphertext, metadata, transactionId, document.document_hash,
+      dependencies.keyEncryptionKeys,
+    );
+  } catch {
+    ciphertext?.fill(0);
+    for (const attempt of attempts.results) {
+      await db.prepare(`
+        UPDATE delivery_attempts
+        SET submission_failure_category = 'attachment_preparation_failed', submission_failed_at = ?
+        WHERE id = ? AND delivery_state = 'PENDING_SUBMISSION' AND provider_message_id IS NULL
+      `).bind(now, attempt.id).run();
+      result.failed.push(attempt.recipient_role);
+    }
+    return result;
+  } finally {
+    ciphertext?.fill(0);
+  }
+
+  try {
+    for (const attempt of attempts.results) {
+      const role = attempt.recipient_role;
+      let providerSubmissionStarted = false;
+      try {
       providerSubmissionStarted = true;
       const receipt = await dependencies.provider.submit({
         recipientRole: role,
         recipientEmail: role === "PRODUCTION"
           ? addresses.productionEmail
           : addresses.signerEmail,
-        attachmentUrl,
+        attachmentBytes: pdfBytes,
         attachmentFilename: "sealproof-release.pdf",
         documentHash: attempt.document_hash,
         idempotencyKey: idempotencyKey(transactionId, role, attempt.attempt_number),
@@ -185,8 +178,8 @@ export async function submitPendingDeliveries(
         if (!recovered) throw new Error("SUBMISSION_STATE_CONFLICT");
         result.alreadySubmitted.push(role);
       }
-    } catch (error) {
-      await db.prepare(`
+      } catch (error) {
+        await db.prepare(`
         UPDATE delivery_attempts
         SET submission_failure_category = ?, submission_failed_at = ?
         WHERE id = ? AND transaction_id = ? AND recipient_role = ?
@@ -198,8 +191,11 @@ export async function submitPendingDeliveries(
         transactionId,
         role,
       ).run();
-      result.failed.push(role);
+        result.failed.push(role);
+      }
     }
+  } finally {
+    pdfBytes.fill(0);
   }
   return result;
 }
