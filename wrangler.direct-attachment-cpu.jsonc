@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "sealproof-direct-attachment-cpu-spike",
+  "main": "src/worker/direct-attachment-cpu-spike.ts",
+  "compatibility_date": "2026-09-10",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  }
+}
