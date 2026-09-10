@@ -14,6 +14,7 @@ This record documents one successful, start-to-finish test of the live SealProof
 | Transaction ID | `8e74f5d4-4e3f-460f-8cd6-2f8894ef1fb8` |
 | Sealed document SHA-256 | `200f444950b46ee23d3eb9cde96f1c1a4293daf1b1a671c048bb0faaafe36fce` |
 | Test date | September 10, 2026 |
+| Tested-code tag | `v0.1.0-live-test` |
 
 ## Observed result
 
