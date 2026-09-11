@@ -1,7 +1,7 @@
 # 0046 — Direct-Attachment Remote CPU Plan
 
 - Date: September 10, 2026
-- Status: Harness ready; remote evidence pending
+- Status: Remote matrix complete; maximum does not meet a 10 ms Free-plan target
 - Related local gate: `docs/spikes/0045-local-direct-attachment-sizes.md`
 
 ## Question
@@ -52,3 +52,35 @@ After explicit review and deployment approval:
 7. delete the disposable Worker and clear the local shell variable.
 
 No Resend message is required for this gate. A later provider-acceptance check should use the smallest number of emails justified by the CPU results.
+
+## Remote evidence
+
+The isolated Worker was deployed without bindings and enabled with one temporary random trigger secret. One request was made at each planned size. Every response returned HTTP 200 with `outcome: ok`, matching role content, no storage, and no email.
+
+| Synthetic PDF bytes | CPU time | Wall time | Outcome |
+|---:|---:|---:|---|
+| 40,858 | 5 ms | 7 ms | `ok` |
+| 500,000 | 43 ms | 53 ms | `ok` |
+| 1,000,000 | 66 ms | 79 ms | `ok` |
+| 2,000,000 | 116 ms | 131 ms | `ok` |
+| 3,000,000 | 264 ms | 312 ms | `ok` |
+
+For comparison, the earlier two-encoding harness recorded 56, 120, 119, 196, and 956 ms at the same ordered sizes. Reusing one Base64 value therefore removed substantial work, especially at the 3 MB boundary. Variability and the single sample per size prevent treating the differences as precise benchmark percentages.
+
+The client-observed 3 MB round trip was 2,065 ms before optimization; the table above uses Cloudflare's Worker trace measurements and therefore provides the relevant CPU evidence.
+
+## Interpretation
+
+The optimized representative 40,858-byte request completed within a 10 ms CPU target. Every larger test exceeded that target, although all completed successfully on the deployed account. The current 3 MB ceiling therefore does not have evidence supporting reliable operation under a strict 10 ms per-invocation limit.
+
+The harness intentionally models the CPU-heavy initial finalization and two-recipient preparation together. It does not prove the exact CPU cost of a normal browser-generated release, whose size should fall after the new 640-pixel, 300 KB-target photograph policy. The next evidence should record the byte size of a newly generated representative PDF and verify the account's actual Workers subscription and configured CPU limit before changing the product ceiling.
+
+No repeated 3 MB batch was run because the first matrix already disproved the 10 ms maximum-size target. The tail output contained the temporary authorization header and network metadata, so raw trace output was not retained in the repository. Only the sanitized measurements above were preserved.
+
+## Cleanup
+
+After measurement, the disposable Worker was deleted and the temporary trigger environment variable was cleared. The trigger secret appeared in transient tail output but authorized only the synthetic, no-binding Worker; deletion removed the resource it could invoke.
+
+## Conclusion
+
+**Functional remote matrix passed; strict Free-plan maximum-size CPU gate failed.** It cannot be proven that 3 MB direct preparation fits a 10 ms CPU ceiling. The implementation should retain the one-encoding optimization, measure the newly reduced real PDF, verify the actual account plan, and then either lower the PDF limit or explicitly accept the applicable Workers plan.
