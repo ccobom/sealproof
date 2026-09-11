@@ -1,7 +1,7 @@
 # 0046 — Direct-Attachment Remote CPU Plan
 
 - Date: September 10, 2026
-- Status: Representative-size reliability batch passed; maximum does not meet a 10 ms Free-plan target
+- Status: 60 KB candidate ceiling passed; 75 KB and maximum do not meet a 10 ms Free-plan target
 - Related local gate: `docs/spikes/0045-local-direct-attachment-sizes.md`
 
 ## Question
@@ -81,6 +81,18 @@ That representative-size reliability gate was then run against a fresh deploymen
 
 Nine of those invocations remained available in the terminal's Cloudflare trace history. All nine had `outcome: ok`, were not truncated, and recorded 4-5 ms of CPU time with 4-7 ms wall time. The terminal discarded the older trace entries, so this document does not claim CPU measurements for all 20 requests. The evidence therefore consists of a 20-of-20 functional sample and a nine-of-nine captured CPU sample below the nominal 10 ms Free-plan target.
 
+On September 11, a follow-up ceiling search tested synthetic 75,000-byte requests. The six measurements that could be mapped unambiguously to that size recorded 14, 16, 9, 9, 11, and 9 ms of CPU time. All six completed with `outcome: ok` and no truncation, but three exceeded the nominal 10 ms target. A separate 13 ms trace was not assigned to the formal sample because its request could not be mapped confidently. The 75 KB candidate therefore failed the CPU gate.
+
+A 60,000-byte probe then completed with `outcome: ok`, no truncation, 7 ms CPU time, and 9 ms wall time. A subsequent 20-request reliability batch at the same size produced the following sanitized evidence:
+
+- 20 of 20 requests completed successfully;
+- CPU time ranged from 3-6 ms and averaged 4.1 ms;
+- wall time ranged from 3-6 ms;
+- no request exceeded 10 ms CPU time; and
+- no request was truncated or returned a non-`ok` outcome.
+
+The trace was filtered before being written to a temporary local file, so authorization headers and network metadata were not retained. After summarization, the disposable Worker was deleted, its temporary shell secret was cleared, and the sanitized temporary file was deleted.
+
 No repeated 3 MB batch was run because the first matrix already disproved the 10 ms maximum-size target. The tail output contained the temporary authorization header and network metadata, so raw trace output was not retained in the repository. Only the sanitized measurements above were preserved.
 
 ## Cleanup
@@ -89,4 +101,4 @@ After measurement, the disposable Worker was deleted and the temporary trigger e
 
 ## Conclusion
 
-**Representative-size reliability gate passed; strict Free-plan maximum-size CPU gate failed.** The measured 49,755-byte release size has encouraging evidence for the current Free-plan architecture: 20 of 20 requests completed successfully, and all nine captured CPU traces stayed at 4-5 ms. This does not establish that the existing 3 MB maximum is safe under a 10 ms ceiling. Before production, SealProof should set and enforce a final-PDF size limit supported by repeated evidence, with deliberate headroom above representative releases and below sizes already shown to exceed the target.
+**A 60 KB candidate ceiling passed; 75 KB and the current 3 MB maximum failed the strict Free-plan CPU gate.** The manually measured 49,755-byte release fits below the passing candidate with approximately 10 KB of byte-size headroom. The result supports considering a 60,000-byte final-PDF limit, but that product limit should be approved explicitly and enforced consistently in the browser and Worker. The capture process must also prevent ordinary valid inputs from unexpectedly exceeding it; the existing 300 KB photo target and 500 KB accepted-photo maximum are not aligned with this evidence and require a separate adjustment.
