@@ -22,3 +22,9 @@ Checkpoint two begins only after the cleaned runtime passes its test deployment.
 The production runtime has fewer secret inputs, fewer dormant authorization primitives, and no retired document-retrieval handler. Explicit deployment targets reduce the chance of updating the wrong Worker. Removing the database columns is intentionally deferred so runtime deployment remains independently reversible and can be validated before the schema changes.
 
 Historical files may continue to describe the superseded URL design. They are evidence of why the direct-content design was selected, not active implementation instructions.
+
+## Checkpoint-one validation
+
+The cleaned runtime passed 199 retained automated tests, the production build, and all Wrangler/TypeScript checks. The seven removed tests covered only the deleted provider-capability modules and route. A bare Wrangler dry run failed before deployment because no default deployable configuration exists, as intended.
+
+The change was deployed explicitly to `sealproof-test` as Cloudflare Worker version `f9adf675-27b3-4eac-b518-a22a956e0626`. A complete photographed release then passed with every compact Worker log entry reporting `Ok`; both role-specific messages arrived; each downloaded PDF hash matched the sealed SHA-256; and explicit closeout/reset completed successfully. The legacy database columns and Cloudflare secret remained present throughout this checkpoint.
