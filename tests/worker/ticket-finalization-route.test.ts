@@ -3,6 +3,7 @@ import { PDFDocument } from "pdf-lib";
 import { beforeAll, describe, expect, it } from "vitest";
 import { issueFinalizationTicket, openFinalizationTicket } from "../../src/admission/finalization-ticket";
 import { sha256Hex } from "../../src/document/hash";
+import { FINAL_PDF_CONTRACT } from "../../src/document/pdf-contract";
 import { handleTicketFinalizationRequest } from "../../src/http/ticket-finalization-route";
 import { cleanupRelease } from "../../src/cleanup/release-cleanup";
 
@@ -118,9 +119,9 @@ describe("raw PDF ticket finalization route", () => {
   it("rejects declared and actual oversize before finalization", async () => {
     const issued = await ticket();
     const declared = request(issued.ticket);
-    declared.headers.set("content-length", "3000001");
+    declared.headers.set("content-length", String(FINAL_PDF_CONTRACT.maximumBytes + 1));
     expect((await handleTicketFinalizationRequest(declared, ENVIRONMENT, NOW + 1)).status).toBe(413);
-    const oversized = new Uint8Array(3_000_001);
+    const oversized = new Uint8Array(FINAL_PDF_CONTRACT.maximumBytes + 1);
     oversized.set(new TextEncoder().encode("%PDF-"));
     expect((await handleTicketFinalizationRequest(
       request(issued.ticket, oversized), ENVIRONMENT, NOW + 1,

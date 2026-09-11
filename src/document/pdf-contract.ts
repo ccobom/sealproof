@@ -1,7 +1,7 @@
 import { PDFDocument } from "pdf-lib";
 
 export const FINAL_PDF_CONTRACT = {
-  maximumBytes: 3_000_000,
+  maximumBytes: 60_000,
   maximumPages: 3,
 } as const;
 

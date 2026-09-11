@@ -1,7 +1,7 @@
 export const IMAGE_CONTRACT = {
   photo: {
     format: "jpeg",
-    maximumBytes: 500_000,
+    maximumBytes: 40_000,
     maximumLongestEdge: 1_280,
     captureLongestEdge: 640,
   },
@@ -28,7 +28,7 @@ function fail(message: string): never {
 }
 
 export function validateJpegPhoto(bytes: Uint8Array): ImageDimensions {
-  if (bytes.length > IMAGE_CONTRACT.photo.maximumBytes) fail("photo exceeds 500 KB");
+  if (bytes.length > IMAGE_CONTRACT.photo.maximumBytes) fail("photo exceeds 40 KB");
   if (bytes[0] !== 0xff || bytes[1] !== 0xd8) fail("photo is not a JPEG");
 
   let offset = 2;

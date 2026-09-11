@@ -62,7 +62,7 @@ describe("Worker PDF upload boundary", () => {
       valid: false,
       reason: "INVALID_PDF",
     });
-    expect(validatePdfUpload(new Uint8Array(3_000_001))).toEqual({
+    expect(validatePdfUpload(new Uint8Array(FINAL_PDF_CONTRACT.maximumBytes + 1))).toEqual({
       valid: false,
       reason: "PDF_TOO_LARGE",
     });

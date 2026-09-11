@@ -73,9 +73,9 @@ It may animate while waiting, but it must not claim that an incomplete stage has
 ## Final document limits
 
 - The finalized PDF may contain no more than three pages.
-- The finalized PDF may contain no more than 3,000,000 bytes.
+- The finalized PDF may contain no more than 60,000 bytes.
 - The reviewed browser generator enforces both limits before signature collection and displays the exact generated PDF for signer review.
-- The Worker independently enforces the 3,000,000-byte limit, checks the PDF header, hashes the exact uploaded bytes, and uses R2 checksum validation before sealing. It does not fully parse the document because the representative remote test exceeded the intended Free-plan CPU budget.
+- The Worker independently enforces the 60,000-byte limit, checks the PDF header, hashes the exact uploaded bytes, and uses R2 checksum validation before sealing. It does not fully parse the document because remote testing showed that parsing and preparing larger inputs does not retain dependable margin within the intended Free-plan CPU budget.
 - The three-page rule is a constraint of SealProof's generator and review flow, not a claim that the Worker can prove the page count of bytes submitted by a modified or hostile client.
 - A document outside either limit is not sealed and produces a clear correction path rather than silently truncating agreement text, images, or signatures.
 
@@ -86,7 +86,7 @@ It may animate while waiting, but it must not claim that an incomplete stage has
 - If required, camera denial or failure cannot be silently bypassed.
 - If waived by production, the signer may take a photo or explicitly continue without one.
 - Gallery or file upload is not treated as equivalent to taking a current signer photograph.
-- The browser capture path scales the photograph to a maximum 640-pixel longest edge, targets 300,000 encoded JPEG bytes, and rejects a photograph over 500,000 bytes.
+- The browser capture path begins at a maximum 640-pixel longest edge and targets 35,000 encoded JPEG bytes. It tries lower JPEG qualities and then progressively smaller 560- and 480-pixel longest edges rather than immediately failing a complex camera frame. It rejects a photograph over the 40,000-byte hard limit.
 - The evidence-page photograph preserves its aspect ratio and fits within a 175-by-175-point area so it supports identity evidence without dominating the agreement.
 
 ## Explicitly outside the first release
@@ -104,5 +104,6 @@ To be decided. Candidate exclusions must be approved before implementation.
 
 - Approved by: Project owner
 - Date: September 8, 2026
-- Notes: State meanings, delivery flow, retry choices, explicit deletion, an unconditional two-hour access window followed by recurring verified deletion, and final-document limits of three pages and 3,000,000 bytes are approved. The document remains a draft until its open decisions are resolved.
+- Notes: State meanings, delivery flow, retry choices, explicit deletion, an unconditional two-hour access window followed by recurring verified deletion, and a three-page limit are approved. The original 3,000,000-byte document limit was replaced on September 11 by the evidence-backed 60,000-byte operational limit. The document remains a draft until its open decisions are resolved.
+- September 11, 2026: A 60,000-byte final-PDF ceiling, 35,000-byte photo target, 40,000-byte photo hard limit, and adaptive 640/560/480-pixel capture sequence were approved after remote CPU testing.
 - September 9, 2026: Production-controlled optional signer photography was approved. Photography defaults to required; a waiver must be chosen before handoff, shown to the signer, and recorded in the document.

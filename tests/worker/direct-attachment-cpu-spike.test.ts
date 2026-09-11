@@ -59,13 +59,13 @@ describe("direct attachment CPU spike boundary", () => {
     expect(oversized.status).toBe(413);
   });
 
-  it("runs at the exact 3 MB application boundary locally", async () => {
-    const bytes = pdf(3_000_000);
+  it("runs at the exact 60 KB application boundary locally", async () => {
+    const bytes = pdf(60_000);
     const response = await invoke(bytes);
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(expect.objectContaining({
-      byteLength: 3_000_000,
-      base64Length: 4_000_000,
+      byteLength: 60_000,
+      base64Length: 80_000,
       roleContentsMatch: true,
       storage: "none",
       email: "none",

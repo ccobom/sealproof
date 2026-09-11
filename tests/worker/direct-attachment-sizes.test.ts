@@ -49,9 +49,8 @@ function environment(): ProductionDeliveryEnvironment {
 describe("direct attachment size boundary", () => {
   it.each([
     ["representative", 40_858],
-    ["500 KB", 500_000],
-    ["1 MB", 1_000_000],
-    ["2 MB", 2_000_000],
+    ["50 KB", 50_000],
+    ["55 KB", 55_000],
     ["maximum", FINAL_PDF_CONTRACT.maximumBytes],
   ])("submits the exact %s PDF twice as bounded Base64 content", async (_, size) => {
     const pdfBytes = syntheticPdf(size);

@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { temporaryAccessExists } from "../../src/cleanup/release-cleanup";
 import { decryptTemporaryPdf, encryptTemporaryPdf } from "../../src/crypto/temporary-pdf";
 import { bytesToHex, sha256Bytes, sha256Hex } from "../../src/document/hash";
+import { FINAL_PDF_CONTRACT } from "../../src/document/pdf-contract";
 import {
   finalizeRelease,
   resumeReleaseFinalization,
@@ -123,7 +124,7 @@ describe("release finalization coordinator", () => {
       browserDocumentHash: await sha256Hex(new TextEncoder().encode("not a PDF")),
     }), () => FINALIZED_AT)).resolves.toEqual({ outcome: "rejected", reason: "INVALID_PDF" });
     await expect(finalizeRelease(env.TEST_DB, env.TEST_BUCKET, await finalizationInput({
-      pdfBytes: new Uint8Array(3_000_001),
+      pdfBytes: new Uint8Array(FINAL_PDF_CONTRACT.maximumBytes + 1),
     }), () => FINALIZED_AT)).resolves.toEqual({ outcome: "rejected", reason: "PDF_TOO_LARGE" });
     await expect(finalizeRelease(env.TEST_DB, env.TEST_BUCKET, await finalizationInput({
       browserDocumentHash: "0".repeat(64),

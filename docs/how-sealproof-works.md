@@ -1,6 +1,6 @@
 # How SealProof Works
 
-Status: Living guide to the current test deployment, updated September 10, 2026.
+Status: Living guide to the current test deployment, updated September 11, 2026.
 
 This document explains the application in ordinary language. It describes the code that currently runs at `test.sealproof.app`; it is not a promise that every production-readiness task is finished.
 
@@ -72,7 +72,7 @@ The React/TypeScript application uses `pdf-lib` to create the final document. Th
 The browser enforces the current product limits:
 
 - no more than three pages; and
-- no more than 3,000,000 bytes.
+- no more than 60,000 bytes.
 
 The browser calculates a SHA-256 digest of the exact PDF bytes. A hash is a fingerprint, not encryption: it helps detect any byte-level change but does not hide the document.
 
@@ -90,7 +90,7 @@ If accepted, the Worker returns a short-lived encrypted finalization ticket. Tha
 
 ### 5. The browser submits the reviewed PDF
 
-The browser uploads the PDF bytes with the finalization ticket in its authorization header. The Worker checks the hostname and origin again, opens the ticket, rejects replay, enforces the 3 MB upload boundary, and independently calculates SHA-256 over the received bytes.
+The browser uploads the PDF bytes with the finalization ticket in its authorization header. The Worker checks the hostname and origin again, opens the ticket, rejects replay, enforces the 60 KB upload boundary, and independently calculates SHA-256 over the received bytes.
 
 If the Worker's hash does not match the browser hash sealed inside the ticket, finalization stops. SealProof does not call the contract sealed.
 
@@ -231,7 +231,7 @@ The tested transaction ID and hash may be retained as non-PII technical evidence
 
 The live happy path is real, but the application is still a test deployment. Before calling it production-ready, the project still needs deliberate work including:
 
-- maximum-size PDF CPU and memory measurement for the Cloudflare Free limits;
+- continued PDF-size monitoring whenever document layout, fonts, photography, or signature rendering changes;
 - broader mobile, browser, accessibility, failure, concurrency, and hostile-input testing;
 - final visual design and integration with the main `sealproof.app` site;
 - DMARC configuration and final email deliverability review;
