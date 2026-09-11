@@ -196,7 +196,6 @@ Never place actual secret values in this document, Git, screenshots, browser cod
 | `RESEND_WEBHOOK_SECRET` | Cloudflare Worker secret | Verifies that delivery events really came from Resend | No |
 | `KEY_ENCRYPTION_KEY_BASE64` | Cloudflare Worker secret | Wraps per-release PDF keys and protects temporary email data | No |
 | `TICKET_ENCRYPTION_KEY_BASE64` | Cloudflare Worker secret | Encrypts/authenticates finalization tickets | No |
-| `PROVIDER_ATTACHMENT_KEYS_JSON` | Cloudflare Worker secret | Legacy key material from the retired URL-attachment design; still validated by current configuration but not used for new delivery submissions | No |
 | Status capability | Browser memory; only its hash is in D1 | Reads one active release's status | Secret bearer credential |
 | Closeout/retry capability | Browser memory; only its hash is in D1 | Authorizes retry and closeout for one active release | Secret bearer credential |
 
@@ -236,7 +235,7 @@ The live happy path is real, but the application is still a test deployment. Bef
 - final visual design and integration with the main `sealproof.app` site;
 - DMARC configuration and final email deliverability review;
 - final privacy disclosure covering Resend and recipient-provider retention;
-- removal of retired provider-attachment configuration, code, columns, and secret after a safe compatibility review;
+- removal of the retired provider-attachment database columns and Cloudflare secret after the cleaned runtime passes its deployment checkpoint;
 - documented secret rotation, incident response, and cleanup-failure alerting;
 - final product/legal review of release language and claims; and
 - a future decision about signer-controlled email opt-out, which must remain isolated from production and transparent about its consequences.

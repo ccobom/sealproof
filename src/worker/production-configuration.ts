@@ -58,8 +58,6 @@ export function validProductionConfiguration(
     || !IDENTIFIER.test(environment.ACTIVE_KEY_VERSION)
     || typeof environment.ACTIVE_TICKET_KEY_VERSION !== "string"
     || !IDENTIFIER.test(environment.ACTIVE_TICKET_KEY_VERSION)
-    || typeof environment.ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION !== "string"
-    || !IDENTIFIER.test(environment.ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION)
     || typeof environment.TURNSTILE_SECRET_KEY !== "string"
     || environment.TURNSTILE_SECRET_KEY.length < 16
     || environment.TURNSTILE_SECRET_KEY.length > 512
@@ -73,30 +71,12 @@ export function validProductionConfiguration(
 
   const pdfKey = decodeKey(environment.KEY_ENCRYPTION_KEY_BASE64);
   const ticketKey = decodeKey(environment.TICKET_ENCRYPTION_KEY_BASE64);
-  const providerKeys: Uint8Array[] = [];
-  let activeProviderKey: Uint8Array | undefined;
   try {
-    if (!pdfKey || !ticketKey || sameBytes(pdfKey, ticketKey)
-      || typeof environment.PROVIDER_ATTACHMENT_KEYS_JSON !== "string") return false;
-    const parsed: unknown = JSON.parse(environment.PROVIDER_ATTACHMENT_KEYS_JSON);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return false;
-    const entries = Object.entries(parsed);
-    if (entries.length < 1 || entries.length > 4) return false;
-    for (const [version, encoded] of entries) {
-      if (!IDENTIFIER.test(version)) return false;
-      const key = decodeKey(encoded);
-      if (!key) return false;
-      providerKeys.push(key);
-      if (version === environment.ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION) activeProviderKey = key;
-    }
-    if (!activeProviderKey || sameBytes(pdfKey, activeProviderKey)
-      || sameBytes(ticketKey, activeProviderKey)) return false;
-    return true;
+    return Boolean(pdfKey && ticketKey && !sameBytes(pdfKey, ticketKey));
   } catch {
     return false;
   } finally {
     pdfKey?.fill(0);
     ticketKey?.fill(0);
-    for (const key of providerKeys) key.fill(0);
   }
 }

@@ -8,7 +8,9 @@
     "local:migrate": "wrangler d1 migrations apply sealproof-local --local --config wrangler.local.jsonc",
     "build": "vite build",
     "build:browser-spike": "vite build --config vite.browser-spike.config.ts",
-    "types": "wrangler types",
+    "types": "wrangler types --config wrangler.test.jsonc",
+    "deploy:test": "npm run build && wrangler deploy --config wrangler.test.jsonc",
+    "tail:test": "wrangler tail sealproof-test --format pretty",
     "check": "npm run types && tsc --noEmit && tsc --noEmit --project tests/tsconfig.json && tsc --noEmit --project src/app/tsconfig.json && tsc --noEmit --project src/browser-spike/tsconfig.json",
     "test": "vitest run"
   },

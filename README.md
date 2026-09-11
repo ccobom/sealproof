@@ -27,3 +27,7 @@ The production stack is TypeScript, React/Vite, Cloudflare Workers, D1, private 
 ## Local full-stack runtime
 
 Run `npm.cmd run dev:local` in PowerShell (`npm run dev:local` in Git Bash) to build the React app, apply migrations to isolated local D1, and serve the app plus Worker API over HTTPS at `https://localhost:8787`. This runtime uses synthetic keys and a local-only Turnstile substitute; its entry point rejects non-loopback hostnames and must never be used with real information.
+
+## Controlled test deployment
+
+Run `npm.cmd run deploy:test` to build and deploy the controlled `sealproof-test` environment. There is intentionally no default `wrangler.jsonc`; direct Wrangler commands must name a reviewed configuration so a bare deployment cannot silently target an obsolete spike.

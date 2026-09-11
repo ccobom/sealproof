@@ -10,7 +10,6 @@ import type { SealProofEnvironment } from "../../src/worker/app";
 
 const NOW = 1_800_000_000_000;
 const PDF_KEY = Uint8Array.from({ length: 32 }, (_, index) => index);
-const PROVIDER_KEY = Uint8Array.from({ length: 32 }, (_, index) => index + 1);
 let PDF_BYTES: Uint8Array;
 
 function base64(bytes: Uint8Array): string {
@@ -27,8 +26,6 @@ const ENVIRONMENT: SealProofEnvironment = {
   KEY_ENCRYPTION_KEY_BASE64: base64(PDF_KEY),
   ACTIVE_TICKET_KEY_VERSION: "ticket-v1",
   TICKET_ENCRYPTION_KEY_BASE64: base64(PDF_KEY),
-  ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION: "provider-v1",
-  PROVIDER_ATTACHMENT_KEYS_JSON: JSON.stringify({ "provider-v1": base64(PROVIDER_KEY) }),
 };
 
 beforeAll(async () => {

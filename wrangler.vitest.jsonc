@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // TEST RUNNER ONLY. No Worker entry point or deployable service is defined.
+  "name": "sealproof-vitest-only",
+  "compatibility_date": "2026-09-09",
+  "rules": [
+    {
+      "type": "Data",
+      "globs": ["**/*.jpg"],
+      "fallthrough": true
+    }
+  ]
+}

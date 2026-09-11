@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   // CONTROLLED LIVE TEST ONLY. This file contains no secret values.
   "name": "sealproof-test",
-  "main": "src/worker/production-app.ts",
+  "main": "src/worker/test-deployment-entry.ts",
   "compatibility_date": "2026-09-09",
   "workers_dev": false,
   "routes": [
@@ -38,7 +38,6 @@
     "ACTIVE_WORKFLOW_VERSION": "release-v1",
     "ACTIVE_KEY_VERSION": "pdf-v1",
     "ACTIVE_TICKET_KEY_VERSION": "ticket-v1",
-    "ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION": "provider-v1",
     "TURNSTILE_SITE_KEY": "0x4AAAAAAEugZnhz6_XrWjKi",
     "RESEND_FROM": "SealProof Releases <releases@sealproof.app>"
   },
@@ -47,7 +46,6 @@
       "TURNSTILE_SECRET_KEY",
       "KEY_ENCRYPTION_KEY_BASE64",
       "TICKET_ENCRYPTION_KEY_BASE64",
-      "PROVIDER_ATTACHMENT_KEYS_JSON",
       "RESEND_API_KEY",
       "RESEND_WEBHOOK_SECRET"
     ]

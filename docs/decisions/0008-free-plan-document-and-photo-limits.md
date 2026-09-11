@@ -31,3 +31,5 @@ This evidence applies to the current PDF generator and direct-attachment impleme
 ## Implementation validation
 
 The completed implementation passed all 206 automated tests and the production build. A fresh local camera walkthrough then produced an approximately 37 KB final PDF. The tester confirmed that both the processed photograph preview and the photograph embedded in the exact final PDF remained clear and sufficiently large for the intended evidence.
+
+The change was subsequently deployed to `sealproof-test` as Cloudflare Worker version `ce783557-f0d8-48f3-a74f-d793e0d7b9a0`. A photographed live walkthrough at `test.sealproof.app` again produced an approximately 37 KB PDF, both role-specific messages arrived with their attachments, the site completed successfully, and the compact Worker log showed the expected request flow without errors.

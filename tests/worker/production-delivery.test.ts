@@ -13,7 +13,6 @@ function base64(bytes: Uint8Array): string {
 }
 
 const PII_KEY = Uint8Array.from({ length: 32 }, (_, index) => index);
-const PROVIDER_KEY = Uint8Array.from({ length: 32 }, (_, index) => index + 1);
 
 function environment(overrides: Partial<ProductionDeliveryEnvironment> = {}): ProductionDeliveryEnvironment {
   return {
@@ -26,8 +25,6 @@ function environment(overrides: Partial<ProductionDeliveryEnvironment> = {}): Pr
     KEY_ENCRYPTION_KEY_BASE64: base64(PII_KEY),
     ACTIVE_TICKET_KEY_VERSION: "ticket-v1",
     TICKET_ENCRYPTION_KEY_BASE64: base64(Uint8Array.from({ length: 32 }, () => 7)),
-    ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION: "provider-v1",
-    PROVIDER_ATTACHMENT_KEYS_JSON: JSON.stringify({ "provider-v1": base64(PROVIDER_KEY) }),
     RESEND_API_KEY: "re_synthetic_production_key",
     RESEND_FROM: "SealProof <releases@sealproof.example>",
     ...overrides,
@@ -74,8 +71,7 @@ describe("production delivery wiring", () => {
       ["signer@example.invalid"],
     ]);
     const attempts = await env.TEST_DB.prepare(`
-      SELECT recipient_role, delivery_state, provider_message_id,
-        provider_ticket_envelope, provider_capability_hash
+      SELECT recipient_role, delivery_state, provider_message_id
       FROM delivery_attempts WHERE transaction_id = ? ORDER BY id
     `).bind(transactionId).all<Record<string, unknown>>();
     expect(attempts.results).toEqual([
@@ -97,8 +93,6 @@ describe("production delivery wiring", () => {
     expect(attachmentContents[0]).toBe(attachmentContents[1]);
     expect(attachmentContents.every((content) => content.length > 0)).toBe(true);
     expect(bodies.every((body) => body.attachments[0].path === undefined)).toBe(true);
-    expect(attempts.results.every((attempt) => attempt.provider_ticket_envelope === null)).toBe(true);
-    expect(attempts.results.every((attempt) => attempt.provider_capability_hash === null)).toBe(true);
   });
 
   it("fails closed before any provider request when encryption configuration is invalid", async () => {

@@ -42,8 +42,6 @@ function environment(secret = SECRET) {
     KEY_ENCRYPTION_KEY_BASE64: base64(1),
     ACTIVE_TICKET_KEY_VERSION: "ticket-v1",
     TICKET_ENCRYPTION_KEY_BASE64: base64(2),
-    ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION: "provider-v1",
-    PROVIDER_ATTACHMENT_KEYS_JSON: JSON.stringify({ "provider-v1": base64(3) }),
     RESEND_API_KEY: "re_synthetic_production_key",
     RESEND_FROM: "SealProof <releases@sealproof.test>",
     RESEND_WEBHOOK_SECRET: secret,

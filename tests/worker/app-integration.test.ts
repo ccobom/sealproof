@@ -29,10 +29,6 @@ const ENVIRONMENT: SealProofEnvironment = {
   KEY_ENCRYPTION_KEY_BASE64: base64(Uint8Array.from({ length: 32 }, (_, index) => index)),
   ACTIVE_TICKET_KEY_VERSION: "ticket-v1",
   TICKET_ENCRYPTION_KEY_BASE64: base64(Uint8Array.from({ length: 32 }, (_, index) => 255 - index)),
-  ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION: "provider-v1",
-  PROVIDER_ATTACHMENT_KEYS_JSON: JSON.stringify({
-    "provider-v1": base64(Uint8Array.from({ length: 32 }, (_, index) => index + 1)),
-  }),
 };
 
 describe("production-shaped local Worker", () => {
@@ -82,8 +78,7 @@ describe("production-shaped local Worker", () => {
     const storedBytes = new Uint8Array(await object!.arrayBuffer());
     expect(new TextDecoder().decode(storedBytes.subarray(0, 5))).not.toBe("%PDF-");
     const attempts = await env.TEST_DB.prepare(`
-      SELECT recipient_role, delivery_state, provider_message_id,
-        provider_ticket_envelope, provider_capability_hash
+      SELECT recipient_role, delivery_state, provider_message_id
       FROM delivery_attempts WHERE transaction_id = ? ORDER BY id
     `).bind(result.transactionId).all<Record<string, unknown>>();
     expect(attempts.results).toEqual([
@@ -92,8 +87,6 @@ describe("production-shaped local Worker", () => {
     ]);
     for (const attempt of attempts.results) {
       expect(attempt.provider_message_id).toMatch(/^fake_[0-9a-f]{32}$/);
-      expect(attempt.provider_ticket_envelope).toBeNull();
-      expect(attempt.provider_capability_hash).toBeNull();
     }
 
     const status = await browserFetcher(`/api/releases/${result.transactionId}/status`, {

@@ -1,28 +1,11 @@
-import { containedPhotoDimensions, validateJpegPhoto } from "../document/image-contract";
+import {
+  IMAGE_CONTRACT,
+  photoCaptureDimensionPlan,
+  validateJpegPhoto,
+} from "../document/image-contract";
 
-export const TARGET_PHOTO_BYTES = 35_000;
-export const CAPTURE_LONGEST_EDGES = [640, 560, 480] as const;
+export const TARGET_PHOTO_BYTES = IMAGE_CONTRACT.photo.targetBytes;
 const JPEG_QUALITIES = [0.86, 0.78, 0.7, 0.62, 0.54] as const;
-
-export interface CaptureDimensions {
-  width: number;
-  height: number;
-}
-
-export function photoCaptureDimensionPlan(width: number, height: number): CaptureDimensions[] {
-  const initial = containedPhotoDimensions(width, height);
-  const initialLongestEdge = Math.max(initial.width, initial.height);
-  const smallerDimensions = CAPTURE_LONGEST_EDGES
-    .filter((longestEdge) => longestEdge < initialLongestEdge)
-    .map((longestEdge) => {
-      const scale = longestEdge / initialLongestEdge;
-      return {
-        width: Math.max(1, Math.round(initial.width * scale)),
-        height: Math.max(1, Math.round(initial.height * scale)),
-      };
-    });
-  return [initial, ...smallerDimensions];
-}
 
 function canvasJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
   return new Promise((resolve, reject) => {

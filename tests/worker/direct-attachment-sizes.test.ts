@@ -9,7 +9,6 @@ import type { ProductionDeliveryEnvironment } from "../../src/worker/production-
 const NOW = 1_800_000_000_000;
 const PDF_KEY = Uint8Array.from({ length: 32 }, (_, index) => index);
 const TICKET_KEY = Uint8Array.from({ length: 32 }, (_, index) => index + 32);
-const PROVIDER_KEY = Uint8Array.from({ length: 32 }, (_, index) => 255 - index);
 
 function base64(bytes: Uint8Array): string {
   let binary = "";
@@ -37,10 +36,6 @@ function environment(): ProductionDeliveryEnvironment {
     KEY_ENCRYPTION_KEY_BASE64: base64(PDF_KEY),
     ACTIVE_TICKET_KEY_VERSION: "ticket-v1",
     TICKET_ENCRYPTION_KEY_BASE64: base64(TICKET_KEY),
-    ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION: "provider-v1",
-    PROVIDER_ATTACHMENT_KEYS_JSON: JSON.stringify({
-      "provider-v1": base64(PROVIDER_KEY),
-    }),
     RESEND_API_KEY: "re_synthetic_size_test_key",
     RESEND_FROM: "SealProof <releases@sealproof.example>",
   };

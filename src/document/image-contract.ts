@@ -4,6 +4,8 @@ export const IMAGE_CONTRACT = {
     maximumBytes: 40_000,
     maximumLongestEdge: 1_280,
     captureLongestEdge: 640,
+    targetBytes: 35_000,
+    captureLongestEdges: [640, 560, 480],
   },
 } as const;
 
@@ -21,6 +23,21 @@ export function containedPhotoDimensions(width: number, height: number): ImageDi
     width: Math.max(1, Math.round(width * scale)),
     height: Math.max(1, Math.round(height * scale)),
   };
+}
+
+export function photoCaptureDimensionPlan(width: number, height: number): ImageDimensions[] {
+  const initial = containedPhotoDimensions(width, height);
+  const initialLongestEdge = Math.max(initial.width, initial.height);
+  const smallerDimensions = IMAGE_CONTRACT.photo.captureLongestEdges
+    .filter((longestEdge) => longestEdge < initialLongestEdge)
+    .map((longestEdge) => {
+      const scale = longestEdge / initialLongestEdge;
+      return {
+        width: Math.max(1, Math.round(initial.width * scale)),
+        height: Math.max(1, Math.round(initial.height * scale)),
+      };
+    });
+  return [initial, ...smallerDimensions];
 }
 
 function fail(message: string): never {

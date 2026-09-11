@@ -2,13 +2,14 @@
 
 `wrangler.production.jsonc` is a reviewed template, not deployment approval. It
 remains intentionally unusable while either `REPLACE_WITH_...` placeholder is
-present. The existing `wrangler.jsonc` continues to describe the synthetic
-spike.
+present. There is intentionally no default `wrangler.jsonc`: every deployment
+must name an explicitly reviewed configuration. `npm.cmd run deploy:test`
+builds and deploys only the controlled `sealproof-test` environment.
 
 ## Public configuration
 
 - `EXPECTED_HOSTNAME`: exact custom hostname, without scheme or path
-- workflow and three cryptographic key-version labels
+- workflow and two cryptographic key-version labels
 - `RESEND_FROM`: address on the verified, restricted Resend sending domain
 - D1 database name and ID, private R2 bucket name, asset directory, and cleanup
   schedule
@@ -18,12 +19,11 @@ spike.
 - `TURNSTILE_SECRET_KEY`
 - `KEY_ENCRYPTION_KEY_BASE64`
 - `TICKET_ENCRYPTION_KEY_BASE64`
-- `PROVIDER_ATTACHMENT_KEYS_JSON`
 - `RESEND_API_KEY`
 - `RESEND_WEBHOOK_SECRET`
 
-The PDF, finalization-ticket, and provider-attachment keys must be independent
-random 32-byte keys. Their values must never be copied into this manifest,
+The PDF and finalization-ticket keys must be independent random 32-byte keys.
+Their values must never be copied into this manifest,
 source control, chat, logs, screenshots, or ordinary Cloudflare variables.
 
 The manifest declares every secret as required so current Wrangler versions

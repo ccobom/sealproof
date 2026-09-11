@@ -5,7 +5,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [
     cloudflareTest(async () => ({
-      wrangler: { configPath: "./wrangler.jsonc" },
+      wrangler: { configPath: "./wrangler.vitest.jsonc" },
       miniflare: {
         d1Databases: ["TEST_DB"],
         r2Buckets: ["TEST_BUCKET"],

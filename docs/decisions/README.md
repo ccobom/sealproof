@@ -20,4 +20,5 @@ Current records:
 - `0005-anonymous-admission-and-abuse-control.md` — accepted for incremental implementation; anonymous use with Turnstile and layered limits;
 - `0006-provider-attachment-access.md` — superseded by the direct-content attachment decision;
 - `0007-direct-resend-attachments.md` — accepted for controlled test deployment; and
-- `0008-free-plan-document-and-photo-limits.md` — accepted; evidence-backed 60 KB PDF and 35/40 KB photograph limits.
+- `0008-free-plan-document-and-photo-limits.md` — accepted; evidence-backed 60 KB PDF and 35/40 KB photograph limits; and
+- `0009-retire-provider-attachment-runtime.md` — accepted for staged removal of the superseded attachment-URL runtime and secret.

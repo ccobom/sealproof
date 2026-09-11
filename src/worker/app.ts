@@ -10,7 +10,6 @@ import {
 import { handleReleaseStatusRequest } from "../http/release-status-route";
 import { handleCloseoutReleaseRequest } from "../http/closeout-release-route";
 import { runScheduledMaintenance } from "../cleanup/scheduled-maintenance";
-import type { ProviderAttachmentEnvironment } from "../http/provider-attachment-route";
 import {
   handleRetryDeliveryRequest,
   type RetryDeliveryHandler,
@@ -23,7 +22,7 @@ const PRIVATE_RESPONSE_HEADERS = {
 } as const;
 
 export interface SealProofEnvironment
-  extends AdmissionRouteEnvironment, TicketFinalizationEnvironment, ProviderAttachmentEnvironment {
+  extends AdmissionRouteEnvironment, TicketFinalizationEnvironment {
   ASSETS?: { fetch(request: Request): Promise<Response> };
 }
 

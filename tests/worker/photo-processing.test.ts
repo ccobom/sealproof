@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  CAPTURE_LONGEST_EDGES,
   photoCaptureDimensionPlan,
-  TARGET_PHOTO_BYTES,
-} from "../../src/app/photo-processing";
-import { IMAGE_CONTRACT } from "../../src/document/image-contract";
+  IMAGE_CONTRACT,
+} from "../../src/document/image-contract";
 
 describe("browser photo processing policy", () => {
   it("tries progressively smaller landscape and portrait frames", () => {
@@ -26,9 +24,9 @@ describe("browser photo processing policy", () => {
   });
 
   it("keeps the encoding target below the hard photo boundary", () => {
-    expect(CAPTURE_LONGEST_EDGES[CAPTURE_LONGEST_EDGES.length - 1]).toBe(480);
-    expect(TARGET_PHOTO_BYTES).toBe(35_000);
+    expect(IMAGE_CONTRACT.photo.captureLongestEdges.at(-1)).toBe(480);
+    expect(IMAGE_CONTRACT.photo.targetBytes).toBe(35_000);
     expect(IMAGE_CONTRACT.photo.maximumBytes).toBe(40_000);
-    expect(TARGET_PHOTO_BYTES).toBeLessThan(IMAGE_CONTRACT.photo.maximumBytes);
+    expect(IMAGE_CONTRACT.photo.targetBytes).toBeLessThan(IMAGE_CONTRACT.photo.maximumBytes);
   });
 });

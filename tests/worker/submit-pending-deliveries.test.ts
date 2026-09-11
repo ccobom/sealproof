@@ -4,22 +4,12 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { DeliveryProvider } from "../../src/delivery/delivery-provider";
 import { FakeDeliveryProvider } from "../../src/delivery/fake-delivery-provider";
 import { submitPendingDeliveries } from "../../src/delivery/submit-pending-deliveries";
-import {
-  decryptProviderCapabilityFromStorage,
-  encryptProviderCapabilityForStorage,
-} from "../../src/delivery/provider-ticket-storage";
 import { sha256Hex } from "../../src/document/hash";
-import { handleProviderAttachmentRequest } from "../../src/http/provider-attachment-route";
 import { finalizeRelease } from "../../src/release/finalize-release";
 
 const NOW = 1_800_000_000_000;
 const PDF_KEY = Uint8Array.from({ length: 32 }, (_, index) => index);
-const PROVIDER_KEY = Uint8Array.from({ length: 32 }, (_, index) => index + 1);
 let PDF_BYTES: Uint8Array;
-
-function base64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes));
-}
 
 beforeAll(async () => {
   const document = await PDFDocument.create();
@@ -43,18 +33,6 @@ async function release() {
   return result;
 }
 
-function attachmentEnvironment() {
-  return {
-    RELEASE_DB: env.TEST_DB,
-    RELEASE_DOCUMENTS: env.TEST_BUCKET,
-    EXPECTED_HOSTNAME: "sealproof.example",
-    ACTIVE_KEY_VERSION: "pdf-v1",
-    KEY_ENCRYPTION_KEY_BASE64: base64(PDF_KEY),
-    ACTIVE_PROVIDER_ATTACHMENT_KEY_VERSION: "provider-v1",
-    PROVIDER_ATTACHMENT_KEYS_JSON: JSON.stringify({ "provider-v1": base64(PROVIDER_KEY) }),
-  };
-}
-
 function dependencies(provider: DeliveryProvider) {
   return {
     provider,
@@ -64,24 +42,6 @@ function dependencies(provider: DeliveryProvider) {
 }
 
 describe("pending delivery submission coordinator", () => {
-  it("encrypts the stored bearer and binds it to exactly one attempt", async () => {
-    const ticket = "v1.provider-v1.synthetic-ticket-ciphertext";
-    const envelope = await encryptProviderCapabilityForStorage(
-      ticket, "provider-v1", PROVIDER_KEY, "transaction_storage_test", 42,
-    );
-    expect(envelope).not.toContain(ticket);
-    await expect(decryptProviderCapabilityFromStorage(
-      envelope, { "provider-v1": PROVIDER_KEY }, "transaction_storage_test", 42,
-    )).resolves.toBe(ticket);
-    await expect(decryptProviderCapabilityFromStorage(
-      envelope, { "provider-v1": PROVIDER_KEY }, "transaction_storage_test", 43,
-    )).rejects.toThrow();
-    const altered = envelope.slice(0, -1) + (envelope.endsWith("A") ? "B" : "A");
-    await expect(decryptProviderCapabilityFromStorage(
-      altered, { "provider-v1": PROVIDER_KEY }, "transaction_storage_test", 42,
-    )).rejects.toThrow();
-  });
-
   it("submits two role-specific messages whose fetched attachments are exact matches", async () => {
     const sealed = await release();
     const provider = new FakeDeliveryProvider();
