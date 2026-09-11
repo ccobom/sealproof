@@ -167,6 +167,65 @@ default.
 8. Are there categories of minor media use SealProof should expressly decline
    to support without additional procedures or court approval?
 
+## Future consideration: remote guardian authorization
+
+This is a post-MVP use case for specialist review. It is not an implementation
+requirement and does not block the approved in-person minor/guardian workflow.
+
+A minor may be physically present with production while their parent or legal
+guardian is elsewhere. For example, a minor participating in school or college
+media may have a guardian living in another country. A future workflow could
+allow production to begin one minor release and send the guardian a
+transaction-specific, temporary continuation link or QR. The guardian could
+then independently review that release, represent that they are the minor's
+parent/legal guardian and authorized to consent, agree to conduct the
+transaction electronically, sign, and receive their copy remotely.
+
+This continuation capability must remain conceptually distinct from a reusable
+production-preset QR:
+
+| Reusable production preset | Remote-guardian continuation |
+|---|---|
+| Starts new releases | Continues one specific incomplete release |
+| Reuses bounded production/template defaults | Carries authority only for the identified transaction step |
+| Contains no signer-specific information | Is associated with a release that already concerns a particular minor |
+| Designed for repeated use | Temporary and not reusable after completion, closeout, or expiry |
+
+This comparison records the product distinction only. It does not approve a
+particular link format, QR payload, expiration period, authentication method,
+identity check, storage model, or data flow.
+
+The minor-agency principle remains unchanged. The physically present minor may
+receive the same age-accessible informational screen before the remote handoff
+begins. That interaction remains informational and is not assent, consent,
+signature, authorization, or evidence.
+
+Questions for specialist review:
+
+1. Is remote guardian authorization legally appropriate for the media-release
+   uses SealProof intends to support?
+2. Does physical separation between production, minor, and guardian change any
+   electronic-consent, attribution, delivery, or record requirements?
+3. If the guardian is in another U.S. state or another country, how should
+   SealProof address governing-law and jurisdiction questions, and which
+   transactions should be unsupported?
+4. Does an overseas guardian introduce additional privacy, international
+   data-transfer, minor-data, or electronic-signature requirements?
+5. Should production be permitted to photograph or record the minor before
+   guardian authorization is complete, or should SealProof make no claim about
+   when production may begin recording and leave that determination outside
+   the product?
+6. Who must receive the finalized release, and are additional notices, copies,
+   withdrawal opportunities, or nonelectronic options required?
+7. What representations and workflow evidence are appropriate for remote
+   guardian authorization while SealProof continues to state that it does not
+   independently verify identity, parentage, guardianship, or authority?
+
+Do not answer these questions through speculative implementation or add new
+data collection or identity verification solely because this future use case
+exists. Revisit its design only after the current MVP is complete or legal
+review identifies a requirement relevant to the present workflow.
+
 ## Media-release boundary
 
 1. Does the built-in agreement stay within a media-use release rather than
