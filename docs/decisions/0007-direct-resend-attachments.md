@@ -9,9 +9,9 @@ Resend accepted SealProof's live email submissions but rejected both long encryp
 
 ## Decision
 
-The delivery coordinator retrieves the application-encrypted PDF from private R2, verifies the stored ciphertext, decrypts it transiently, and verifies the exact sealed document hash. It supplies those bytes directly to the delivery adapter. The Resend adapter validates the PDF boundary and hash again, Base64-encodes the bytes, and uses Resend's attachment `content` field instead of `path`.
+The delivery coordinator retrieves the application-encrypted PDF from private R2, verifies the stored ciphertext, decrypts it transiently, and verifies the exact sealed document hash. It validates and Base64-encodes those bytes once, then supplies the same immutable encoded content to both role-specific delivery calls. The Resend adapter uses the attachment `content` field instead of `path`.
 
-The same exact decrypted bytes are submitted separately to production and signer. Mutable ciphertext and plaintext buffers are overwritten after submission. No usable provider attachment capability is created, stored, or exposed through the production HTTP router.
+The same exact encoded bytes are submitted separately to production and signer. Mutable ciphertext and plaintext buffers are overwritten after submission. The transient Base64 string cannot be explicitly overwritten. No usable provider attachment capability is created, stored, or exposed through the production HTTP router.
 
 All existing recipient separation, provider idempotency keys, authenticated webhooks, retry states, encrypted temporary storage, two-hour expiration, and closeout deletion remain in force.
 

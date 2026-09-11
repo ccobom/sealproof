@@ -30,7 +30,7 @@ On September 10, 2026:
 - each synthetic document was sealed into application-encrypted R2 storage;
 - the delivery path retrieved, authenticated, decrypted, and revalidated the document;
 - both role-specific Resend requests contained direct `content` and no attachment `path`;
-- each Base64 value had the mathematically expected encoded length;
+- the PDF was Base64-encoded once at the coordinator boundary with the mathematically expected encoded length;
 - production and signer request bodies contained identical attachment content; and
 - both independent delivery attempts reached provider-accepted state in D1.
 

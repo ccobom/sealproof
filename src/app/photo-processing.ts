@@ -1,6 +1,6 @@
 import { containedPhotoDimensions, validateJpegPhoto } from "../document/image-contract";
 
-export const TARGET_PHOTO_BYTES = 1_000_000;
+export const TARGET_PHOTO_BYTES = 300_000;
 const JPEG_QUALITIES = [0.86, 0.78, 0.7, 0.62, 0.54] as const;
 
 function canvasJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {

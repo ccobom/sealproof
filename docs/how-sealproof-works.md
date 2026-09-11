@@ -108,13 +108,15 @@ The Worker stores only hashes of the browser's status and closeout/retry capabil
 
 The Worker retrieves the encrypted R2 object and verifies its recorded ciphertext size and SHA-256. It decrypts the PDF transiently and verifies the plaintext against the sealed document hash again.
 
-The delivery adapter then:
+The delivery coordinator then:
 
 1. validates the PDF boundary and hash once more;
-2. Base64-encodes the exact bytes;
+2. Base64-encodes the exact bytes once;
 3. submits one Resend request for production;
 4. submits a separate Resend request for the signer; and
 5. gives every recipient attempt a deterministic idempotency key.
+
+Both role-specific requests reuse the same immutable Base64 content. The PDF is not re-encoded for the second recipient.
 
 Idempotency means that recovering the same interrupted attempt should not accidentally create a duplicate email. Production and signer still have independent message IDs and delivery states.
 

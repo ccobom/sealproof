@@ -3,7 +3,8 @@ export type DeliveryRecipientRole = "PRODUCTION" | "SIGNER";
 export interface DeliverySubmission {
   recipientRole: DeliveryRecipientRole;
   recipientEmail: string;
-  attachmentBytes: Uint8Array;
+  attachmentContent: string;
+  attachmentByteLength: number;
   attachmentFilename: "sealproof-release.pdf";
   documentHash: string;
   idempotencyKey: string;

@@ -1,8 +1,9 @@
 export const IMAGE_CONTRACT = {
   photo: {
     format: "jpeg",
-    maximumBytes: 2_000_000,
+    maximumBytes: 500_000,
     maximumLongestEdge: 1_280,
+    captureLongestEdge: 640,
   },
 } as const;
 
@@ -15,7 +16,7 @@ export function containedPhotoDimensions(width: number, height: number): ImageDi
   if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1) {
     throw new Error("Camera returned invalid frame dimensions");
   }
-  const scale = Math.min(1, IMAGE_CONTRACT.photo.maximumLongestEdge / Math.max(width, height));
+  const scale = Math.min(1, IMAGE_CONTRACT.photo.captureLongestEdge / Math.max(width, height));
   return {
     width: Math.max(1, Math.round(width * scale)),
     height: Math.max(1, Math.round(height * scale)),
@@ -27,7 +28,7 @@ function fail(message: string): never {
 }
 
 export function validateJpegPhoto(bytes: Uint8Array): ImageDimensions {
-  if (bytes.length > IMAGE_CONTRACT.photo.maximumBytes) fail("photo exceeds 2 MB");
+  if (bytes.length > IMAGE_CONTRACT.photo.maximumBytes) fail("photo exceeds 500 KB");
   if (bytes[0] !== 0xff || bytes[1] !== 0xd8) fail("photo is not a JPEG");
 
   let offset = 2;

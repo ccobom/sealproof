@@ -1,5 +1,6 @@
 import type { KeyEncryptionKeys } from "../crypto/temporary-pii";
 import { decryptTemporaryPdf, type EncryptedTemporaryPdfMetadata } from "../crypto/temporary-pdf";
+import { bytesToBase64 } from "../document/base64";
 import { sha256Hex } from "../document/hash";
 import { loadTemporaryEmailAddresses } from "../release/release-state";
 import type { DeliveryProvider, DeliveryRecipientRole } from "./delivery-provider";
@@ -143,6 +144,10 @@ export async function submitPendingDeliveries(
   }
 
   try {
+    if (await sha256Hex(pdfBytes) !== document.document_hash) {
+      throw new Error("Prepared PDF failed delivery identity validation");
+    }
+    const attachmentContent = bytesToBase64(pdfBytes);
     for (const attempt of attempts.results) {
       const role = attempt.recipient_role;
       let providerSubmissionStarted = false;
@@ -153,7 +158,8 @@ export async function submitPendingDeliveries(
         recipientEmail: role === "PRODUCTION"
           ? addresses.productionEmail
           : addresses.signerEmail,
-        attachmentBytes: pdfBytes,
+        attachmentContent,
+        attachmentByteLength: pdfBytes.byteLength,
         attachmentFilename: "sealproof-release.pdf",
         documentHash: attempt.document_hash,
         idempotencyKey: idempotencyKey(transactionId, role, attempt.attempt_number),

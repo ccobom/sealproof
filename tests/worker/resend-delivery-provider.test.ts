@@ -13,7 +13,8 @@ beforeAll(async () => {
   submission = {
     recipientRole: "SIGNER",
     recipientEmail: "signer@example.invalid",
-    attachmentBytes: ATTACHMENT_BYTES,
+    attachmentContent: btoa(String.fromCharCode(...ATTACHMENT_BYTES)),
+    attachmentByteLength: ATTACHMENT_BYTES.byteLength,
     attachmentFilename: "sealproof-release.pdf",
     documentHash: await sha256Hex(ATTACHMENT_BYTES),
     idempotencyKey: "sealproof/transaction_123456/signer/1",

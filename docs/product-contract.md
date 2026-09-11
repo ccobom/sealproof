@@ -86,6 +86,8 @@ It may animate while waiting, but it must not claim that an incomplete stage has
 - If required, camera denial or failure cannot be silently bypassed.
 - If waived by production, the signer may take a photo or explicitly continue without one.
 - Gallery or file upload is not treated as equivalent to taking a current signer photograph.
+- The browser capture path scales the photograph to a maximum 640-pixel longest edge, targets 300,000 encoded JPEG bytes, and rejects a photograph over 500,000 bytes.
+- The evidence-page photograph preserves its aspect ratio and fits within a 175-by-175-point area so it supports identity evidence without dominating the agreement.
 
 ## Explicitly outside the first release
 

@@ -86,22 +86,19 @@ export async function measureDirectAttachmentPreparation(request: Request): Prom
       { [SYNTHETIC_KEY_VERSION]: SYNTHETIC_PDF_KEY },
     );
 
-    // The production adapter independently verifies and encodes the same
-    // decrypted bytes once for each role-specific Resend request.
-    if (await sha256Hex(decrypted) !== documentHash) throw new Error("PRODUCTION_HASH_MISMATCH");
-    const productionContent = bytesToBase64(decrypted);
-    const productionBody = resendShapedBody(productionContent, documentHash, "production");
-    if (await sha256Hex(decrypted) !== documentHash) throw new Error("SIGNER_HASH_MISMATCH");
-    const signerContent = bytesToBase64(decrypted);
-    const signerBody = resendShapedBody(signerContent, documentHash, "signer");
-    if (productionContent !== signerContent) throw new Error("ROLE_CONTENT_MISMATCH");
+    // The optimized coordinator verifies and encodes once, then reuses the
+    // exact immutable Base64 content in both role-specific Resend requests.
+    if (await sha256Hex(decrypted) !== documentHash) throw new Error("DELIVERY_HASH_MISMATCH");
+    const attachmentContent = bytesToBase64(decrypted);
+    const productionBody = resendShapedBody(attachmentContent, documentHash, "production");
+    const signerBody = resendShapedBody(attachmentContent, documentHash, "signer");
 
     return Response.json({
       byteLength: pdfBytes.byteLength,
       ciphertextBytes: ciphertext.byteLength,
       documentHash,
       ciphertextHash,
-      base64Length: productionContent.length,
+      base64Length: attachmentContent.length,
       productionRequestBytes: new TextEncoder().encode(productionBody).byteLength,
       signerRequestBytes: new TextEncoder().encode(signerBody).byteLength,
       roleContentsMatch: true,

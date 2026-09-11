@@ -107,11 +107,11 @@ export async function createFinalReleaseDocument(input: FinalReleaseInput): Prom
 
   if (input.photo) {
     const embeddedPhoto = await document.embedJpg(input.photo);
-    const scale = Math.min(330 / embeddedPhoto.width, 330 / embeddedPhoto.height);
+    const scale = Math.min(175 / embeddedPhoto.width, 175 / embeddedPhoto.height);
     evidencePage.drawText("Current signer photograph", { x: MARGIN, y: 650, size: 10, font: bold });
     evidencePage.drawImage(embeddedPhoto, {
       x: MARGIN,
-      y: 300,
+      y: 430,
       width: embeddedPhoto.width * scale,
       height: embeddedPhoto.height * scale,
     });

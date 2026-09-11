@@ -20,7 +20,7 @@ export class FakeDeliveryProvider implements DeliveryProvider {
     const fingerprint = await sha256Hex(new TextEncoder().encode(JSON.stringify({
       recipientRole: input.recipientRole,
       recipientEmail: input.recipientEmail,
-      attachmentHash: await sha256Hex(input.attachmentBytes),
+      attachmentHash: input.documentHash,
       attachmentFilename: input.attachmentFilename,
       documentHash: input.documentHash,
     })));
@@ -30,9 +30,14 @@ export class FakeDeliveryProvider implements DeliveryProvider {
       return existing.receipt;
     }
 
-    const bytes = new Uint8Array(input.attachmentBytes);
+    const bytes = Uint8Array.from(
+      atob(input.attachmentContent),
+      (character) => character.charCodeAt(0),
+    );
     const actualHash = await sha256Hex(bytes);
-    if (actualHash !== input.documentHash) throw new Error("ATTACHMENT_IDENTITY_MISMATCH");
+    if (bytes.byteLength !== input.attachmentByteLength || actualHash !== input.documentHash) {
+      throw new Error("ATTACHMENT_IDENTITY_MISMATCH");
+    }
 
     const providerMessageId = `fake_${(await sha256Hex(
       new TextEncoder().encode(input.idempotencyKey),

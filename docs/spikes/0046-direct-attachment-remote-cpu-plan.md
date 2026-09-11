@@ -32,11 +32,10 @@ One request deliberately performs the CPU-heavy operations that occur during cur
 4. hash the ciphertext;
 5. unwrap and decrypt the ciphertext;
 6. validate and hash the decrypted PDF;
-7. independently hash and Base64-encode it for production;
+7. independently verify its delivery hash and Base64-encode it once;
 8. serialize a production Resend-shaped JSON body;
-9. independently hash and Base64-encode it for the signer;
-10. serialize a signer Resend-shaped JSON body; and
-11. overwrite mutable plaintext and ciphertext buffers.
+9. reuse the exact encoded content in a signer Resend-shaped JSON body; and
+10. overwrite mutable plaintext and ciphertext buffers.
 
 This excludes network waiting, D1 queries, R2 operations, and the actual Resend request. Those operations are primarily I/O; the isolated test is intended to expose the scalable cryptographic, encoding, and serialization cost.
 
