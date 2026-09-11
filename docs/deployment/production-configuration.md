@@ -11,8 +11,8 @@ builds and deploys only the controlled `sealproof-test` environment.
 - `EXPECTED_HOSTNAME`: exact custom hostname, without scheme or path
 - workflow and two cryptographic key-version labels
 - `RESEND_FROM`: address on the verified, restricted Resend sending domain
-- D1 database name and ID, private R2 bucket name, asset directory, and cleanup
-  schedule
+- D1 database name and ID, private R2 bucket name, asset directory, and the
+  approved every-minute cleanup schedule
 
 ## Required secrets
 

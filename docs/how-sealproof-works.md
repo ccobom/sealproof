@@ -163,7 +163,7 @@ The Worker:
 4. deletes the temporary D1 row, which also removes temporary addresses, capabilities, delivery-attempt identifiers, and encryption metadata; and
 5. marks cleanup complete in the minimal audit record.
 
-If explicit closeout never happens, access expires exactly two hours after finalization. The scheduled Worker runs every five minutes in the current test deployment and repeatedly attempts cleanup until it can confirm deletion. Expiration wins even if delivery is still pending.
+If explicit closeout never happens, access expires exactly two hours after finalization. The scheduled Worker is configured to run every minute and repeatedly attempts cleanup until it can confirm deletion. Expiration wins even if delivery is still pending. Cloudflare may delay a scheduled invocation, so the two-hour claim applies to access authorization; physical deletion begins on the next successful sweep rather than at an exact millisecond.
 
 The minimal audit record expires one year after successful cleanup. It contains evidence such as transaction ID, document hash, workflow version, final delivery outcomes, finalization/cleanup timestamps, cleanup outcome, and bounded failure category—not the agreement, PDF, names, email addresses, photograph, or signature.
 

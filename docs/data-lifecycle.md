@@ -154,11 +154,10 @@ scheduled job has run. Physical deletion begins on the next successful
 scheduled sweep, verifies R2 absence, deletes temporary D1 state, and retries
 on later sweeps after bounded cleanup failure.
 
-The local configuration runs this sweep every minute. The current test
-deployment and production template run it every five minutes. Older approved
-documents say every minute. That schedule must be deliberately reconciled
-before production; SealProof must claim exact access expiry but not
-exact-millisecond physical deletion by distributed infrastructure.
+The local, test, and production configurations run this sweep every minute.
+Cloudflare may delay scheduled execution, so SealProof claims exact access
+expiry but not exact-millisecond physical deletion by distributed
+infrastructure.
 
 ### Audit expiry
 
@@ -189,7 +188,6 @@ access boundary, retention, deletion, and threat analysis.
 - Operational rotation, retirement, loss, and recovery procedures for PDF and
   email key-encryption keys without extending PII retention.
 - Privacy-preserving alerts and escalation after repeated cleanup failure.
-- Whether production cleanup runs every minute or every five minutes.
 - Exact bounded audit flags for electronic consent, applicable signer role,
   photo completion/waiver, and built-in template version.
 - Browser wording and behavior that makes clearing remaining in-page PDF/source
