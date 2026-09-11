@@ -19,6 +19,7 @@ function configuration(): ProductionEnvironment {
     RELEASE_DOCUMENTS: env.TEST_BUCKET,
     TURNSTILE_SECRET_KEY: "0x4AAAA-synthetic-turnstile-secret",
     TURNSTILE_SITE_KEY: "0x4AAAAAAEugZnhz6_XrWjKi",
+    DELIVERY_ENABLED: "true",
     EXPECTED_HOSTNAME: "app.sealproof.test",
     ACTIVE_WORKFLOW_VERSION: "release-v1",
     ACTIVE_KEY_VERSION: "pdf-v1",

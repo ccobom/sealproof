@@ -1,3 +1,4 @@
+import { budgetExhausted } from "../delivery/delivery-budget";
 import type { TemporaryEmailAddresses } from "../crypto/temporary-pii";
 import { bytesToHex, sha256Bytes } from "../document/hash";
 import { validatePdfUpload, type PdfUploadFailure } from "../document/pdf-contract";
@@ -35,7 +36,7 @@ export type FinalizeReleaseResult =
       statusCapability: string;
       downloadCapability: string;
     }
-  | { outcome: "rejected"; reason: PdfUploadFailure | "HASH_MISMATCH" | "ADMISSION_REPLAYED" }
+  | { outcome: "rejected"; reason: PdfUploadFailure | "HASH_MISMATCH" | "ADMISSION_REPLAYED" | "DELIVERY_UNAVAILABLE" }
   | { outcome: "storage_failed_cleaned"; transactionId: string };
 
 export type ResumeFinalizationResult =
@@ -168,6 +169,7 @@ export async function finalizeRelease(
       `).bind(input.admissionId).first();
       if (consumed) return { outcome: "rejected", reason: "ADMISSION_REPLAYED" };
     }
+    if (budgetExhausted(error)) return { outcome: "rejected", reason: "DELIVERY_UNAVAILABLE" };
     throw error;
   }
 

@@ -1,3 +1,4 @@
+import { deliveryAvailable } from "../delivery/delivery-budget";
 import { z } from "zod";
 import { issueFinalizationTicket } from "./finalization-ticket";
 import { verifyTurnstileToken } from "./verify-turnstile";
@@ -19,6 +20,8 @@ const admissionSchema = z.strictObject({
 });
 
 export interface AdmissionRouteEnvironment {
+  DELIVERY_ENABLED?: string;
+  RELEASE_DB: D1Database;
   TURNSTILE_SECRET_KEY: string;
   EXPECTED_HOSTNAME: string;
   ACTIVE_WORKFLOW_VERSION: string;
@@ -64,6 +67,7 @@ export async function handleAdmissionRequest(
   if (request.method !== "POST") {
     return new Response(null, { status: 405, headers: { ...NO_STORE_HEADERS, allow: "POST" } });
   }
+  if (!await deliveryAvailable(environment, now)) return response("DELIVERY_UNAVAILABLE", 503);
   if (!validConfiguration(environment) || !Number.isSafeInteger(now) || now < 0) {
     return response("SERVICE_UNAVAILABLE", 503);
   }

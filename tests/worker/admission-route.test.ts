@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { describe, expect, it, vi } from "vitest";
 import { handleAdmissionRequest } from "../../src/admission/admission-route";
 import { openFinalizationTicket } from "../../src/admission/finalization-ticket";
@@ -6,7 +7,9 @@ const NOW = 1_800_000_000_000;
 const KEY = Uint8Array.from({ length: 32 }, (_, index) => index);
 const KEY_BASE64 = btoa(String.fromCharCode(...KEY));
 const ENVIRONMENT = {
+  RELEASE_DB: env.TEST_DB,
   TURNSTILE_SECRET_KEY: "synthetic-secret",
+  DELIVERY_ENABLED: "true",
   EXPECTED_HOSTNAME: "sealproof.example",
   ACTIVE_WORKFLOW_VERSION: "workflow-v1",
   ACTIVE_TICKET_KEY_VERSION: "ticket-v1",

@@ -28,6 +28,7 @@
     }
   ],
   "vars": {
+    "DELIVERY_ENABLED": "false",
     "EXPECTED_HOSTNAME": "REPLACE_WITH_PRODUCTION_HOSTNAME",
     "ACTIVE_WORKFLOW_VERSION": "release-v1",
     "ACTIVE_KEY_VERSION": "pdf-v1",

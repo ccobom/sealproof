@@ -32,6 +32,7 @@
     }
   ],
   "vars": {
+    "DELIVERY_ENABLED": "true",
     "TURNSTILE_SECRET_KEY": "LOCAL_SYNTHETIC_ONLY",
     "EXPECTED_HOSTNAME": "localhost",
     "ACTIVE_WORKFLOW_VERSION": "local-workflow-v1",

@@ -36,6 +36,7 @@ function environment(secret = SECRET) {
     RELEASE_DOCUMENTS: env.TEST_BUCKET,
     TURNSTILE_SECRET_KEY: "0x4AAAA-synthetic-turnstile-secret",
     TURNSTILE_SITE_KEY: "0x4AAAAAAEugZnhz6_XrWjKi",
+    DELIVERY_ENABLED: "true",
     EXPECTED_HOSTNAME: "app.sealproof.test",
     ACTIVE_WORKFLOW_VERSION: "release-v1",
     ACTIVE_KEY_VERSION: "pdf-v1",
@@ -61,7 +62,7 @@ describe("production Resend webhook route", () => {
     const worker = createProductionWorker({ now: () => NOW });
     const response = await worker.fetch(
       signedRequest(event()),
-      environment() as ProductionEnvironment,
+      { ...environment(), DELIVERY_ENABLED: "false" } as ProductionEnvironment,
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ received: true });

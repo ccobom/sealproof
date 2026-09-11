@@ -34,6 +34,7 @@
     }
   ],
   "vars": {
+    "DELIVERY_ENABLED": "false",
     "EXPECTED_HOSTNAME": "test.sealproof.app",
     "ACTIVE_WORKFLOW_VERSION": "release-v1",
     "ACTIVE_KEY_VERSION": "pdf-v1",

@@ -1,3 +1,4 @@
+import { budgetExhausted } from "../delivery/delivery-budget";
 import { z } from "zod";
 import { sha256Hex } from "../document/hash";
 import { recomputeDeliverySummary } from "../delivery/recompute-delivery-summary";
@@ -21,6 +22,7 @@ interface AttemptRow {
 }
 
 export interface RetryDeliveryEnvironment {
+  DELIVERY_ENABLED?: string;
   RELEASE_DB: D1Database;
   EXPECTED_HOSTNAME: string;
 }
@@ -69,6 +71,7 @@ export async function handleRetryDeliveryRequest(
   if (request.method !== "POST") {
     return new Response(null, { status: 405, headers: { ...NO_STORE_HEADERS, allow: "POST" } });
   }
+  if (environment.DELIVERY_ENABLED !== "true") return error("DELIVERY_UNAVAILABLE", 503);
   const url = new URL(request.url);
   const match = url.pathname.match(/^\/api\/releases\/([A-Za-z0-9_-]{16,128})\/retry$/);
   if (
@@ -124,7 +127,8 @@ export async function handleRetryDeliveryRequest(
           WHERE id = ? AND delivery_state = 'FAILED'
         )
       `).bind(transactionId, role, latest.attempt_number + 1, now, latest.id).run();
-    } catch {
+    } catch (caught) {
+      if (budgetExhausted(caught)) return error("DELIVERY_UNAVAILABLE", 503);
       // A concurrent request may have created the uniquely numbered attempt.
     }
     latest = await latestAttempt(environment.RELEASE_DB, transactionId, role);
@@ -142,7 +146,8 @@ export async function handleRetryDeliveryRequest(
         requestedAt: now,
         publicOrigin: url.origin,
       }, environment);
-    } catch {
+    } catch (caught) {
+      if (budgetExhausted(caught)) return error("DELIVERY_UNAVAILABLE", 503);
       // Keep the durable pending attempt recoverable; never claim provider acceptance.
     }
     latest = await latestAttempt(environment.RELEASE_DB, transactionId, role);

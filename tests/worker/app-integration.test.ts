@@ -23,6 +23,7 @@ const ENVIRONMENT: SealProofEnvironment = {
   RELEASE_DB: env.TEST_DB,
   RELEASE_DOCUMENTS: env.TEST_BUCKET,
   TURNSTILE_SECRET_KEY: "synthetic-turnstile-secret",
+  DELIVERY_ENABLED: "true",
   EXPECTED_HOSTNAME: "sealproof.example",
   ACTIVE_WORKFLOW_VERSION: "workflow-v1",
   ACTIVE_KEY_VERSION: "pdf-kek-v1",
@@ -100,6 +101,7 @@ describe("production-shaped local Worker", () => {
 
     const localEnvironment = {
       ...ENVIRONMENT,
+      DELIVERY_ENABLED: "true",
       EXPECTED_HOSTNAME: "localhost",
       LOCAL_RESEND_WEBHOOK_SECRET: LOCAL_WEBHOOK_SECRET,
     };

@@ -30,6 +30,8 @@ export async function runScheduledMaintenance(
   );
   const auditRecordsDeleted = await deleteExpiredAuditRecords(environment.RELEASE_DB, now);
 
+  await environment.RELEASE_DB.prepare("DELETE FROM delivery_budget WHERE reserved_at <= ?").bind(now - 86_400_000).run();
+
   return {
     releasesExamined: results.length,
     releasesCompleted: results.filter(({ outcome }) =>

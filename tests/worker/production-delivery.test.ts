@@ -19,6 +19,7 @@ function environment(overrides: Partial<ProductionDeliveryEnvironment> = {}): Pr
     RELEASE_DB: env.TEST_DB,
     RELEASE_DOCUMENTS: env.TEST_BUCKET,
     TURNSTILE_SECRET_KEY: "synthetic-turnstile-secret",
+    DELIVERY_ENABLED: "true",
     EXPECTED_HOSTNAME: "sealproof.example",
     ACTIVE_WORKFLOW_VERSION: "workflow-v1",
     ACTIVE_KEY_VERSION: "pdf-v1",
@@ -107,6 +108,17 @@ describe("production delivery wiring", () => {
     }, environment({ KEY_ENCRYPTION_KEY_BASE64: "invalid" }))).rejects.toThrow(
       "Production delivery configuration is invalid",
     );
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
+describe("production emergency delivery switch", () => {
+  it.each([undefined, "false", "TRUE"])("blocks direct provider handlers for %s", async (value) => {
+    const fetcher = vi.fn<typeof fetch>();
+    const handlers = createProductionDeliveryHandlers(fetcher);
+    const disabled = environment({ DELIVERY_ENABLED: value });
+    await handlers.afterSealed({ transactionId: "disabled_transaction", publicOrigin: "https://sealproof.example", sealedAt: NOW }, disabled);
+    await handlers.retryDelivery({ transactionId: "disabled_transaction", publicOrigin: "https://sealproof.example", requestedAt: NOW, recipientRole: "SIGNER" }, disabled);
     expect(fetcher).not.toHaveBeenCalled();
   });
 });

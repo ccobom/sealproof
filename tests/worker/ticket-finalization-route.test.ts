@@ -19,6 +19,7 @@ function base64(bytes: Uint8Array): string {
 const ENVIRONMENT = {
   RELEASE_DB: env.TEST_DB,
   RELEASE_DOCUMENTS: env.TEST_BUCKET,
+  DELIVERY_ENABLED: "true",
   EXPECTED_HOSTNAME: "sealproof.example",
   ACTIVE_KEY_VERSION: "pdf-kek-v1",
   KEY_ENCRYPTION_KEY_BASE64: base64(PDF_KEY),

@@ -4,6 +4,7 @@ import {
   type KeyEncryptionKeys,
   type TemporaryEmailAddresses,
 } from "../crypto/temporary-pii";
+import { INITIAL_DELIVERY_ROLES } from "../delivery/delivery-budget";
 import { calculateExpiry } from "../delivery/state";
 import type { EncryptedTemporaryPdfMetadata } from "../crypto/temporary-pdf";
 
@@ -133,16 +134,11 @@ export async function createReleaseState(
       input.encryptedPdf.ciphertextSize,
       input.encryptedPdf.ciphertextHash,
     ),
-    db.prepare(`
+    ...INITIAL_DELIVERY_ROLES.map((role) => db.prepare(`
       INSERT INTO delivery_attempts (
         transaction_id, recipient_role, attempt_number, delivery_state, created_at
-      ) VALUES (?, 'PRODUCTION', 1, 'PENDING_SUBMISSION', ?)
-    `).bind(input.transactionId, input.finalizedAt),
-    db.prepare(`
-      INSERT INTO delivery_attempts (
-        transaction_id, recipient_role, attempt_number, delivery_state, created_at
-      ) VALUES (?, 'SIGNER', 1, 'PENDING_SUBMISSION', ?)
-    `).bind(input.transactionId, input.finalizedAt),
+      ) VALUES (?, ?, 1, 'PENDING_SUBMISSION', ?)
+    `).bind(input.transactionId, role, input.finalizedAt)),
   ];
   if (input.admissionId) {
     statements.push(db.prepare(`

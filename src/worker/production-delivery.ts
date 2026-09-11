@@ -31,6 +31,7 @@ async function submitProductionDelivery(
   environment: ProductionDeliveryEnvironment,
   fetcher?: NetworkFetcher,
 ): Promise<void> {
+  if (environment.DELIVERY_ENABLED !== "true") return;
   const piiKey = decodeKey(environment.KEY_ENCRYPTION_KEY_BASE64);
   if (!piiKey) {
     throw new Error("Production delivery configuration is invalid");

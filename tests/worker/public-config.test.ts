@@ -6,6 +6,7 @@ import {
 import { handlePublicConfigRequest } from "../../src/http/public-config-route";
 
 const ENVIRONMENT = {
+  DELIVERY_ENABLED: "true",
   EXPECTED_HOSTNAME: "test.sealproof.app",
   TURNSTILE_SITE_KEY: "0x4AAAAAAEugZnhz6_XrWjKi",
 };

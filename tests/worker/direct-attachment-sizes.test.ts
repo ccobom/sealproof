@@ -30,6 +30,7 @@ function environment(): ProductionDeliveryEnvironment {
     RELEASE_DB: env.TEST_DB,
     RELEASE_DOCUMENTS: env.TEST_BUCKET,
     TURNSTILE_SECRET_KEY: "synthetic-turnstile-secret",
+    DELIVERY_ENABLED: "true",
     EXPECTED_HOSTNAME: "sealproof.example",
     ACTIVE_WORKFLOW_VERSION: "workflow-v1",
     ACTIVE_KEY_VERSION: "pdf-v1",

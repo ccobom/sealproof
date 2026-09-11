@@ -9,6 +9,7 @@ const NO_STORE_HEADERS = {
 } as const;
 
 export interface TicketFinalizationEnvironment {
+  DELIVERY_ENABLED?: string;
   RELEASE_DB: D1Database;
   RELEASE_DOCUMENTS: R2Bucket;
   EXPECTED_HOSTNAME: string;
@@ -61,6 +62,7 @@ export async function handleTicketFinalizationRequest(
   if (request.method !== "POST") {
     return new Response(null, { status: 405, headers: { ...NO_STORE_HEADERS, allow: "POST" } });
   }
+  if (environment.DELIVERY_ENABLED !== "true") return error("DELIVERY_UNAVAILABLE", 503);
   const pdfKey = decodeKey(environment.KEY_ENCRYPTION_KEY_BASE64);
   const ticketKey = decodeKey(environment.TICKET_ENCRYPTION_KEY_BASE64);
   if (
@@ -107,6 +109,7 @@ export async function handleTicketFinalizationRequest(
     }, () => now);
 
     if (result.outcome === "rejected") {
+      if (result.reason === "DELIVERY_UNAVAILABLE") return error(result.reason, 503);
       if (result.reason === "ADMISSION_REPLAYED") return error("INVALID_TICKET", 401);
       return error(result.reason, result.reason === "PDF_TOO_LARGE" ? 413 : 400);
     }

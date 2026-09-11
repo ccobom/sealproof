@@ -12,6 +12,7 @@ const KEY = Uint8Array.from({ length: 32 }, (_, index) => index);
 const ENVIRONMENT = {
   RELEASE_DB: env.TEST_DB,
   RELEASE_DOCUMENTS: env.TEST_BUCKET,
+  DELIVERY_ENABLED: "true",
   EXPECTED_HOSTNAME: "sealproof.example",
 };
 let PDF_BYTES: Uint8Array;

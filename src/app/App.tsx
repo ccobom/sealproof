@@ -9,6 +9,7 @@ import { signerDetailsSchema, type SignerDetails } from "./signer-details";
 import { PhotoCapture } from "./PhotoCapture";
 import { SignatureCapture } from "./SignatureCapture";
 import { validateSignature, type Signature } from "../document/signature-contract";
+import { FinalizationRequestError } from "./finalization-client";
 import type { FinalizedRelease, ReleaseStatus } from "./finalization-client";
 import type { LocalFakeDeliveryEvent } from "./finalization-client";
 import { TurnstileChallenge } from "./TurnstileChallenge";
@@ -159,7 +160,18 @@ export function App() {
     window.scrollTo(0, 0);
   }
 
-  function beginHandoff() {
+  async function beginHandoff() {
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      const response = await fetch("/api/delivery-availability", { credentials: "omit", cache: "no-store" });
+      if (!response.ok || (await response.json() as { available?: unknown }).available !== true) throw new Error("unavailable");
+    } catch {
+      setFailure("Delivery is temporarily unavailable. Please try again later. Nothing has been uploaded, emailed, or scheduled.");
+      return;
+    } finally {
+      setBusy(false);
+    }
     setSigner(initialSignerDetails(setup.agreementDate));
     setSignerErrors({});
     show("handoff");
@@ -262,8 +274,11 @@ export function App() {
       setFinalizedRelease(release);
       setReleaseStatus(status);
       show("sealedLocal");
-    } catch {
-      setFailure(localRuntime
+    } catch (error) {
+      setFailure(error instanceof FinalizationRequestError && error.status === 503
+        && ["admission", "upload", "retry"].includes(error.stage)
+        ? "Delivery is temporarily unavailable. Please try again later; no delivery has been scheduled by this action."
+        : localRuntime
         ? "The local sealing test did not complete. Your reviewed PDF remains in this browser; no successful closeout has been claimed."
         : "The live sealing test did not complete. Your reviewed PDF remains in this browser; no successful closeout has been claimed. Complete a fresh anti-abuse check before retrying.");
       if (!localRuntime) {
@@ -351,8 +366,10 @@ export function App() {
           ? "The new retry attempt exists but fake provider acceptance is still pending. You may retry this action; the original PDF and expiry are unchanged."
           : "The new retry attempt exists but provider acceptance is still pending. You may retry this action; the original PDF and expiry are unchanged.");
       }
-    } catch {
-      setFailure(localRuntime
+    } catch (error) {
+      setFailure(error instanceof FinalizationRequestError && error.status === 503
+        ? "Delivery is temporarily unavailable. Please try again later; no delivery has been scheduled by this action."
+        : localRuntime
         ? "SealProof could not create or recover the fake retry attempt. The original PDF and expiry are unchanged."
         : "SealProof could not create or recover the delivery retry. The original PDF and expiry are unchanged.");
     } finally {
@@ -465,7 +482,7 @@ export function App() {
               {previewUrl && previewBytes && (
                 <a className="primary-button" href={previewUrl} download="sealproof-test-preview.pdf">Download test PDF</a>
               )}
-              <button className="primary-button" type="button" onClick={beginHandoff}>Approve setup and hand off</button>
+              <button className="primary-button" type="button" onClick={beginHandoff} disabled={busy}>{busy ? "Checking delivery availability?" : "Approve setup and hand off"}</button>
             </div>
           </section>
         ) : screen === "handoff" ? (

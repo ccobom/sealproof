@@ -50,9 +50,19 @@ This is meaningful test evidence, not a claim of production readiness.
 | `NOW` | Write an operational runbook | Key rotation, secret loss, webhook failure, Resend outage, cleanup failure, rollback, and incident response have safe procedures |
 | `NOW` | Establish privacy and legal disclosures | Users can understand what SealProof and Resend process and retain; release language and signature workflow receive appropriate legal review |
 | `NEXT` | Complete accessibility and compatibility testing | Keyboard, focus, screen-reader announcements, zoom, camera permissions, touch signing, PDF fallback, and supported browsers/devices are recorded |
+| `NOW` | Preserve browser controls after successful finalization | Retain returned release credentials before requesting status; an injected status failure preserves status, download, and closeout controls and does not encourage a fresh admission or duplicate release |
+| `NOW` | Connect interrupted-finalization recovery and truthful pending status | An authorized application path resumes recoverable finalization on the same release and exact PDF, preserves expiry and budget accounting, respects the delivery switch, and never labels `FINALIZING` or `pending_recovery` as sealed or emailed |
+| `NOW` | Continue delivery updates for unresolved recipients | A bounce for one recipient does not stop status refresh for the other pending or delayed recipient; a later authenticated outcome appears automatically, with bounded polling and appropriate expiry/closeout stopping conditions |
 | `NEXT` | Test remaining high-value failure paths | Expiry without an open browser, exhausted retries, delayed/unresolved delivery, cleanup recovery, and safe configuration failure have evidence |
 | `NEXT` | Add privacy-preserving operational visibility | Alerts and aggregate measurements expose service health without logging PII, document contents, capabilities, or secrets |
 | `NEXT` | Create a production launch and rollback checklist | Launch approval, smoke test, DNS change, rollback trigger, and post-launch verification are explicit |
+
+The three browser-control, finalization-recovery, and recipient-polling gates
+were identified in code review on September 11, 2026. They predate the anonymous
+abuse containment changes and are separate from the selected rolling-budget
+and delivery-switch implementation slice. They are recorded as production
+correctness gates; this entry does not expand that slice or approve a new
+recovery architecture.
 
 ## MVP scope decisions
 

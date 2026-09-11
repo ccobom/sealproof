@@ -122,6 +122,7 @@ export async function handleFinalizeReleaseRequest(
   );
 
   if (result.outcome === "rejected") {
+    if (result.reason === "DELIVERY_UNAVAILABLE") return errorResponse("SERVICE_UNAVAILABLE", 503);
     if (result.reason === "ADMISSION_REPLAYED") {
       return errorResponse("INVALID_REQUEST", 400);
     }

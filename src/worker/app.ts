@@ -1,3 +1,4 @@
+import { handleDeliveryAvailabilityRequest } from "../http/delivery-availability-route";
 import {
   handleAdmissionRequest,
   type AdmissionRouteEnvironment,
@@ -42,6 +43,7 @@ export function createSealProofWorker(dependencies: SealProofWorkerDependencies 
   return {
     async fetch(request: Request, environment: SealProofEnvironment): Promise<Response> {
       const path = new URL(request.url).pathname;
+      if (path === "/api/delivery-availability") return handleDeliveryAvailabilityRequest(request, environment, now());
       if (path === "/api/releases/admissions") {
         return handleAdmissionRequest(request, environment, now(), fetcher);
       }

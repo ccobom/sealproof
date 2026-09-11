@@ -1,3 +1,4 @@
+import { budgetExhausted } from "./delivery-budget";
 import type { KeyEncryptionKeys } from "../crypto/temporary-pii";
 import { decryptTemporaryPdf, type EncryptedTemporaryPdfMetadata } from "../crypto/temporary-pdf";
 import { bytesToBase64 } from "../document/base64";
@@ -152,6 +153,11 @@ export async function submitPendingDeliveries(
       const role = attempt.recipient_role;
       let providerSubmissionStarted = false;
       try {
+      const claimed = await db.prepare(`
+        UPDATE delivery_attempts SET submission_calls = submission_calls + 1, submission_call_at = ?
+        WHERE id = ? AND delivery_state = 'PENDING_SUBMISSION' AND provider_message_id IS NULL
+      `).bind(now, attempt.id).run();
+      if (claimed.meta.changes === 0) continue;
       providerSubmissionStarted = true;
       const receipt = await dependencies.provider.submit({
         recipientRole: role,
@@ -185,6 +191,7 @@ export async function submitPendingDeliveries(
         result.alreadySubmitted.push(role);
       }
       } catch (error) {
+        if (budgetExhausted(error)) throw error;
         await db.prepare(`
         UPDATE delivery_attempts
         SET submission_failure_category = ?, submission_failed_at = ?

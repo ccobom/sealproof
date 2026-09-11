@@ -35,3 +35,12 @@ Run `npm.cmd run dev:local` in PowerShell (`npm run dev:local` in Git Bash) to b
 ## Controlled test deployment
 
 Run `npm.cmd run deploy:test` to build and deploy the controlled `sealproof-test` environment. There is intentionally no default `wrangler.jsonc`; direct Wrangler commands must name a reviewed configuration so a bare deployment cannot silently target an obsolete spike.
+
+## Anonymous delivery containment
+
+Delivery is disabled by default in the checked-in test and production configs.
+Apply migration `0008_delivery_budget.sql` before deploying this slice, then
+explicitly enable delivery with `DELIVERY_ENABLED="true"` when appropriate.
+The ordinary budget is 90 reservations per rolling 24 hours; initial sealing
+reserves two and each retry reserves one. Additional provider calls for pending
+attempts also consume capacity. See the [implementation and operator notes](docs/evidence/2026-09-11-anonymous-delivery-containment.md).
