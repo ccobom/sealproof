@@ -1,3 +1,4 @@
+import { retainReleaseAndLoadStatus } from "../../src/app/retain-release";
 import { env } from "cloudflare:workers";
 import { PDFDocument } from "pdf-lib";
 import { describe, expect, it, vi } from "vitest";
@@ -68,7 +69,22 @@ describe("production-shaped local Worker", () => {
       browserDocumentHash: reviewedHash,
       turnstileToken: "synthetic-challenge-proof",
     }, browserFetcher);
-    const result = await uploadReviewedPdf(reviewedBytes, reviewedHash, admission.ticket, browserFetcher);
+    const uploaded = await uploadReviewedPdf(reviewedBytes, reviewedHash, admission.ticket, browserFetcher);
+    let retained: typeof uploaded | undefined;
+    let retainedAtFetch: typeof uploaded | undefined;
+    const failedStatusFetcher = vi.fn(async () => {
+      // The actual finalization has already submitted both fake emails. Controls
+      // must exist before this independent status read can fail.
+      retainedAtFetch = retained;
+      return Response.json({ error: "SERVICE_UNAVAILABLE" }, { status: 503 });
+    });
+    expect(await retainReleaseAndLoadStatus(uploaded, release => { retained = release; }, failedStatusFetcher)).toBeUndefined();
+    expect(failedStatusFetcher).toHaveBeenCalledOnce();
+    expect(retainedAtFetch).toEqual(uploaded);
+    expect(retained).toBeDefined();
+    // Exercise all subsequent status, webhook and closeout operations with the
+    // retained credentials, without another admission or finalization.
+    const result = retained!;
 
     expect(turnstileFetcher).toHaveBeenCalledOnce();
     expect(result).toMatchObject({ outcome: "sealed", documentHash: reviewedHash });

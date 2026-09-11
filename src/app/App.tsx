@@ -258,11 +258,12 @@ export function App() {
   }
 
   async function sealRelease() {
-    if (!finalPdfBytes || !finalPdfHash || (!localRuntime && !turnstileToken)) return;
+    if (finalizedRelease || !finalPdfBytes || !finalPdfHash || (!localRuntime && !turnstileToken)) return;
     setBusy(true);
     setFailure(undefined);
     try {
-      const { requestFinalizationAdmission, uploadReviewedPdf, requestReleaseStatus } = await import("./finalization-client");
+      const { requestFinalizationAdmission, uploadReviewedPdf } = await import("./finalization-client");
+      const { retainReleaseAndLoadStatus } = await import("./retain-release");
       const admission = await requestFinalizationAdmission({
         productionEmail: setup.productionEmail,
         signerEmail: signer.signerEmail,
@@ -270,10 +271,13 @@ export function App() {
         turnstileToken: localRuntime ? "local-synthetic-challenge-proof" : turnstileToken!,
       });
       const release = await uploadReviewedPdf(finalPdfBytes, finalPdfHash, admission.ticket);
-      const status = await requestReleaseStatus(release);
-      setFinalizedRelease(release);
+      const status = await retainReleaseAndLoadStatus(release, (retained) => {
+        setFinalizedRelease(retained);
+        setReleaseStatus(undefined);
+        show("sealedLocal");
+      });
       setReleaseStatus(status);
-      show("sealedLocal");
+      if (!status) setFailure("Your release controls are available, but delivery status could not be loaded. Email may already have been sent. Refresh status for this release; do not create another release.");
     } catch (error) {
       setFailure(error instanceof FinalizationRequestError && error.status === 503
         && ["admission", "upload", "retry"].includes(error.stage)
@@ -285,6 +289,20 @@ export function App() {
         setTurnstileToken(undefined);
         setTurnstileResetVersion((value) => value + 1);
       }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refreshReleaseStatus() {
+    if (!finalizedRelease) return;
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      const { requestReleaseStatus } = await import("./finalization-client");
+      setReleaseStatus(await requestReleaseStatus(finalizedRelease));
+    } catch {
+      setFailure("Status is still unavailable. Your release controls remain available and the original expiration is unchanged. Email may already have been sent.");
     } finally {
       setBusy(false);
     }
@@ -609,15 +627,19 @@ export function App() {
           </section>
         ) : screen === "sealedLocal" ? (
           <section className="panel" aria-labelledby="sealed-local-heading">
-            <p className="eyebrow">{localRuntime ? "Encrypted local test" : "Contract sealed"}</p>
-            <h1 id="sealed-local-heading">{localRuntime
+            <p className="eyebrow">{!releaseStatus ? "Release controls" : localRuntime ? "Encrypted local test" : "Contract sealed"}</p>
+            <h1 id="sealed-local-heading">{!releaseStatus
+              ? "Delivery status is unavailable."
+              : localRuntime
               ? "The exact PDF is sealed in local storage."
               : releaseStatus?.releaseState === "DELIVERED"
                 ? "Delivery confirmed."
                 : releaseStatus?.releaseState === "DELIVERY_FAILED"
                   ? "A delivery failed."
                   : "The contract is sealed. Awaiting delivery."}</h1>
-            <p className="lede">{localRuntime
+            <p className="lede">{!releaseStatus
+              ? "Keep this page open to manage the existing release. You can refresh status or hand the device back to production to download the PDF or close the release. The original expiration still applies."
+              : localRuntime
               ? "The Worker independently matched the document hash and stored only encrypted PDF bytes. No email was sent and no live service was contacted."
               : releaseStatus?.releaseState === "DELIVERED"
                 ? "Resend reports that both recipient copies were delivered. Please hand the device back to production."
@@ -629,8 +651,13 @@ export function App() {
               <p><strong>Worker status:</strong> {releaseStatus?.releaseState ?? "Unavailable"}</p>
               <p><strong>Production delivery:</strong> {releaseStatus?.productionDeliveryOutcome ?? "Unavailable"}</p>
               <p><strong>Signer delivery:</strong> {releaseStatus?.signerDeliveryOutcome ?? "Unavailable"}</p>
-              <p><strong>SHA-256:</strong> <code className="inline-hash">{releaseStatus?.documentHash}</code></p>
+              <p><strong>SHA-256:</strong> <code className="inline-hash">{finalizedRelease?.documentHash}</code></p>
             </div>
+            {!releaseStatus && (
+              <div className="preview-actions">
+                <button className="secondary-button" type="button" disabled={busy} onClick={refreshReleaseStatus}>Refresh delivery status</button>
+              </div>
+            )}
             {localRuntime && (
               retryingRole
                 ? (retryingRole === "PRODUCTION"
@@ -707,7 +734,7 @@ export function App() {
                 <p className="privacy-note" role="status">Checking authenticated delivery status every few seconds. You may leave this page open; access still expires at the original two-hour deadline.</p>
               </>
             ) : (
-              <button className="primary-button" type="button" onClick={() => show("productionCloseout")}>I am production and have the device</button>
+              <button className="primary-button" type="button" onClick={() => show("productionCloseout")} disabled={busy}>I am production and have the device</button>
             )}
             {failure && <p className="error-summary" role="alert">{failure}</p>}
           </section>
