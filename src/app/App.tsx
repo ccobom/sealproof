@@ -13,6 +13,7 @@ import type { FinalizedRelease, ReleaseStatus } from "./finalization-client";
 import type { LocalFakeDeliveryEvent } from "./finalization-client";
 import { TurnstileChallenge } from "./TurnstileChallenge";
 import type { PublicConfig } from "./public-config-client";
+import { retryCountLabel } from "./retry-copy";
 
 type Screen = "setup" | "preview" | "handoff" | "signer" | "photo" | "signature" | "finalReview" | "sealedLocal" | "productionCloseout" | "localComplete";
 
@@ -644,17 +645,23 @@ export function App() {
                 {releaseStatus.productionSubmissionState === "PENDING_SUBMISSION" ? (
                   <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("PRODUCTION")}>Retry production submission</button>
                 ) : releaseStatus.productionDeliveryOutcome === "FAILED" && releaseStatus.productionRetriesRemaining > 0 ? (
-                  <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("PRODUCTION")}>Retry production delivery</button>
+                  <>
+                    <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("PRODUCTION")}>Retry production delivery</button>
+                    <p className="privacy-note">Production: {retryCountLabel(releaseStatus.productionRetriesRemaining)}.</p>
+                  </>
+                ) : releaseStatus.productionDeliveryOutcome === "FAILED" ? (
+                  <p className="privacy-note">Production: {retryCountLabel(releaseStatus.productionRetriesRemaining)}. You can still download the browser copy and delete SealProof's temporary storage.</p>
                 ) : null}
                 {releaseStatus.signerSubmissionState === "PENDING_SUBMISSION" ? (
                   <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("SIGNER")}>Retry signer submission</button>
                 ) : releaseStatus.signerDeliveryOutcome === "FAILED" && releaseStatus.signerRetriesRemaining > 0 ? (
-                  <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("SIGNER")}>Retry signer delivery</button>
+                  <>
+                    <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("SIGNER")}>Retry signer delivery</button>
+                    <p className="privacy-note">Signer: {retryCountLabel(releaseStatus.signerRetriesRemaining)}.</p>
+                  </>
+                ) : releaseStatus.signerDeliveryOutcome === "FAILED" ? (
+                  <p className="privacy-note">Signer: {retryCountLabel(releaseStatus.signerRetriesRemaining)}. You can still download the browser copy and delete SealProof's temporary storage.</p>
                 ) : null}
-                {((releaseStatus.productionDeliveryOutcome === "FAILED" && releaseStatus.productionRetriesRemaining === 0)
-                  || (releaseStatus.signerDeliveryOutcome === "FAILED" && releaseStatus.signerRetriesRemaining === 0)) && (
-                  <p className="privacy-note">No retries remain for the failed recipient. You can still download the browser copy and delete SealProof's temporary storage.</p>
-                )}
               </div>
             )}
             {localRuntime ? (
@@ -695,14 +702,22 @@ export function App() {
             {releaseStatus?.releaseState === "DELIVERY_FAILED" && (
               <div className="preview-actions">
                 {releaseStatus.productionDeliveryOutcome === "FAILED" && releaseStatus.productionRetriesRemaining > 0 && (
-                  <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("PRODUCTION")}>Retry production delivery</button>
+                  <>
+                    <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("PRODUCTION")}>Retry production delivery</button>
+                    <p className="privacy-note">Production: {retryCountLabel(releaseStatus.productionRetriesRemaining)}.</p>
+                  </>
                 )}
                 {releaseStatus.signerDeliveryOutcome === "FAILED" && releaseStatus.signerRetriesRemaining > 0 && (
-                  <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("SIGNER")}>Retry signer delivery</button>
+                  <>
+                    <button className="secondary-button" type="button" disabled={busy} onClick={() => retryLocalDelivery("SIGNER")}>Retry signer delivery</button>
+                    <p className="privacy-note">Signer: {retryCountLabel(releaseStatus.signerRetriesRemaining)}.</p>
+                  </>
                 )}
-                {((releaseStatus.productionDeliveryOutcome === "FAILED" && releaseStatus.productionRetriesRemaining === 0)
-                  || (releaseStatus.signerDeliveryOutcome === "FAILED" && releaseStatus.signerRetriesRemaining === 0)) && (
-                  <p className="privacy-note">No retries remain for the failed recipient. Download if needed, then close the release.</p>
+                {releaseStatus.productionDeliveryOutcome === "FAILED" && releaseStatus.productionRetriesRemaining === 0 && (
+                  <p className="privacy-note">Production: {retryCountLabel(0)}. Download if needed, then close the release.</p>
+                )}
+                {releaseStatus.signerDeliveryOutcome === "FAILED" && releaseStatus.signerRetriesRemaining === 0 && (
+                  <p className="privacy-note">Signer: {retryCountLabel(0)}. Download if needed, then close the release.</p>
                 )}
               </div>
             )}
