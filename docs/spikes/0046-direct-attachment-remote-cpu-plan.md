@@ -75,6 +75,8 @@ The optimized representative 40,858-byte request completed within a 10 ms CPU ta
 
 The harness intentionally models the CPU-heavy initial finalization and two-recipient preparation together. It does not prove the exact CPU cost of a normal browser-generated release, whose size should fall after the new 640-pixel, 300 KB-target photograph policy. The next evidence should record the byte size of a newly generated representative PDF and verify the account's actual Workers subscription and configured CPU limit before changing the product ceiling.
 
+After the reduced-photo implementation, a manually completed local release with a fresh camera capture produced a 49,755-byte final PDF. The tester confirmed that both the camera preview and PDF photograph remained clear and sufficiently large for the intended evidence. This representative document size is close to the 40,858-byte remote case that recorded 5 ms CPU, so a repeated remote batch at 49,755 bytes is the next relevant Free-plan reliability gate.
+
 No repeated 3 MB batch was run because the first matrix already disproved the 10 ms maximum-size target. The tail output contained the temporary authorization header and network metadata, so raw trace output was not retained in the repository. Only the sanitized measurements above were preserved.
 
 ## Cleanup
