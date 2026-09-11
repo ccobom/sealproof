@@ -60,6 +60,23 @@ This is meaningful test evidence, not a claim of production readiness.
 |---|---|---|
 | `NOW` | Affirmative electronic consent | Before signature, require a separate affirmative statement that the signer agrees to conduct the release electronically and intends the drawn signature to sign the reviewed agreement; place the approved language and evidence of assent in the sealed PDF and approved audit flags |
 | `NOW` | Minor/guardian workflow | Approved MVP implementation direction; development may proceed under the defined product boundary, followed by specialist review of the completed workflow, boilerplate, warnings, and claims before public launch |
+| `NOW` | Anonymous abuse containment | Approved direction: layered Cloudflare client rate controls, a 90-attempt rolling provider budget, fixed SealProof-controlled email presentation, and a fail-closed delivery switch; client-rate thresholds, implementation, and evidence remain before launch |
+
+The public MVP accepts a bounded limitation: because the browser creates the
+PDF, the Worker can prove byte-for-byte continuity but cannot independently
+prove that a hostile client used SealProof's official generator. The MVP will
+contain abuse and provider cost rather than claim otherwise. Server-authoritative
+PDF generation is a future hardening path to reconsider when observed need or
+project funding supports its runtime and operational cost; it is not required
+for the present MVP.
+
+The approved initial provider budget is 90 Resend submission attempts in a
+rolling 24-hour window. Initial role deliveries consume one attempt each and
+each retry consumes one. Ten attempts under Resend's current 100-per-day free
+allowance remain outside ordinary release traffic as shared operational
+headroom, including for controlled diagnostics or a future Contact Us path.
+They are not a guaranteed reserve for any one purpose. Per-client Cloudflare
+rate thresholds still require approval.
 
 The intended minor workflow asks whether the talent is 18 or older without
 collecting a date of birth. A minor answer creates distinct subject and
