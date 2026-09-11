@@ -12,6 +12,40 @@ They are not development blockers unless the project owner expressly changes
 that direction or counsel identifies a required correction before public
 launch.
 
+## 30-minute consultation priorities
+
+The primary goal of the initial consultation is to distinguish **required
+corrections before public launch** from **recommended but optional best
+practices**. When time is limited, review these subjects in order:
+
+1. **Adult electronic consent and intent-to-sign language:** confirm the
+   acknowledgment, signature sequence, and connection to the exact reviewed
+   PDF.
+2. **Guardian authorization and minor-information screen:** review the
+   guardian representation, guardian-only signature, minor photo, absence of a
+   minor signature, and the intentionally non-consensual/non-evidentiary minor
+   information step.
+3. **Built-in media-release boundary:** confirm that the agreement and workflow
+   stay within permission to use image, voice, likeness, appearance, and
+   related media, and identify unsupported uses.
+4. **Required delivery and copy availability:** determine what production and
+   the adult signer/guardian must receive or be able to retain, including what
+   must happen after email failure.
+5. **Claims SealProof must avoid:** identify language that could improperly
+   imply identity or guardian verification, notarization, legal validity,
+   guaranteed enforceability, employment or compensation documentation,
+   actual receipt, or readership.
+
+For each issue raised, ask counsel to label it as one of:
+
+- required before public launch;
+- recommended but optional;
+- dependent on jurisdiction or use case; or
+- outside the transactions SealProof should support.
+
+If the consultation cannot reach the later questions in this brief, prioritize
+clear follow-up assignments over rushed conclusions.
+
 ## Declared product boundary
 
 SealProof's built-in agreement is intended exclusively to document permission
