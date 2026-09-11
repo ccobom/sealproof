@@ -24,6 +24,10 @@ sealproof-app/
 
 The production stack is TypeScript, React/Vite, Cloudflare Workers, D1, private R2, and Resend. The rationale and validation evidence begin in `docs/decisions/0001-runtime-and-services.md`; incomplete pieces remain explicitly proposed or isolated behind spike boundaries.
 
+The living list of remaining production gates, product ideas, and design passes
+is `docs/production-readiness-plan.md`. An item appearing there is not approval
+to implement it; consequential choices still receive explicit review.
+
 ## Local full-stack runtime
 
 Run `npm.cmd run dev:local` in PowerShell (`npm run dev:local` in Git Bash) to build the React app, apply migrations to isolated local D1, and serve the app plus Worker API over HTTPS at `https://localhost:8787`. This runtime uses synthetic keys and a local-only Turnstile substitute; its entry point rejects non-loopback hostnames and must never be used with real information.
