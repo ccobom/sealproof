@@ -1,7 +1,7 @@
 # 0009 — Retire provider-attachment runtime
 
 - Date: September 11, 2026
-- Status: Checkpoint one passed live; checkpoint two passed local validation
+- Status: Completed and validated
 
 ## Context
 
@@ -33,4 +33,10 @@ The change was deployed explicitly to `sealproof-test` as Cloudflare Worker vers
 
 Before creating the removal migration, a read-only query against the remote `sealproof-test` database returned zero rows with a non-null `provider_ticket_envelope` or `provider_capability_hash`. Migration `0007_remove_provider_attachment_state.sql` drops the legacy index and validation triggers before dropping those two empty columns; it does not edit the historical migrations that originally created them.
 
-The complete seven-migration chain passed locally. The new schema test confirms that neither legacy column nor any associated index/trigger remains. The full migrated suite passed 42 test files and 200 tests, and all Wrangler-generated environment and TypeScript checks passed. Remote migration and Cloudflare secret deletion remain separate manual steps.
+The complete seven-migration chain passed locally. The new schema test confirms that neither legacy column nor any associated index/trigger remains. The full migrated suite passed 42 test files and 200 tests, and all Wrangler-generated environment and TypeScript checks passed. Remote migration and Cloudflare secret deletion were reserved for separate manual validation steps.
+
+## Checkpoint-two remote validation
+
+Migration `0007_remove_provider_attachment_state.sql` was applied successfully to the remote `sealproof-test` database. A follow-up read-only schema query returned zero matching legacy columns, indexes, or triggers. A complete live release then passed: compact Worker logs reported `Ok`, both role-specific messages arrived, both downloaded hashes matched the sealed SHA-256, and explicit closeout completed.
+
+The obsolete `PROVIDER_ATTACHMENT_KEYS_JSON` secret was then deleted from the Cloudflare Worker. Two fresh incognito browser sessions subsequently loaded `test.sealproof.app` and generated the initial PDF preview successfully, confirming that the removed secret is no longer required by the active configuration gate.
