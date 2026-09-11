@@ -1,0 +1,9 @@
+DROP INDEX IF EXISTS delivery_attempts_provider_capability_hash;
+
+DROP TRIGGER IF EXISTS validate_provider_capability_hash_insert;
+DROP TRIGGER IF EXISTS validate_provider_capability_hash_update;
+DROP TRIGGER IF EXISTS validate_provider_ticket_envelope_insert;
+DROP TRIGGER IF EXISTS validate_provider_ticket_envelope_update;
+
+ALTER TABLE delivery_attempts DROP COLUMN provider_capability_hash;
+ALTER TABLE delivery_attempts DROP COLUMN provider_ticket_envelope;

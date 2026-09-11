@@ -1,7 +1,7 @@
 # 0009 — Retire provider-attachment runtime
 
 - Date: September 11, 2026
-- Status: Accepted for staged implementation
+- Status: Checkpoint one passed live; checkpoint two passed local validation
 
 ## Context
 
@@ -28,3 +28,9 @@ Historical files may continue to describe the superseded URL design. They are ev
 The cleaned runtime passed 199 retained automated tests, the production build, and all Wrangler/TypeScript checks. The seven removed tests covered only the deleted provider-capability modules and route. A bare Wrangler dry run failed before deployment because no default deployable configuration exists, as intended.
 
 The change was deployed explicitly to `sealproof-test` as Cloudflare Worker version `f9adf675-27b3-4eac-b518-a22a956e0626`. A complete photographed release then passed with every compact Worker log entry reporting `Ok`; both role-specific messages arrived; each downloaded PDF hash matched the sealed SHA-256; and explicit closeout/reset completed successfully. The legacy database columns and Cloudflare secret remained present throughout this checkpoint.
+
+## Checkpoint-two preflight and local validation
+
+Before creating the removal migration, a read-only query against the remote `sealproof-test` database returned zero rows with a non-null `provider_ticket_envelope` or `provider_capability_hash`. Migration `0007_remove_provider_attachment_state.sql` drops the legacy index and validation triggers before dropping those two empty columns; it does not edit the historical migrations that originally created them.
+
+The complete seven-migration chain passed locally. The new schema test confirms that neither legacy column nor any associated index/trigger remains. The full migrated suite passed 42 test files and 200 tests, and all Wrangler-generated environment and TypeScript checks passed. Remote migration and Cloudflare secret deletion remain separate manual steps.
