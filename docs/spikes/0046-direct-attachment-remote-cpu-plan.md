@@ -1,7 +1,7 @@
 # 0046 — Direct-Attachment Remote CPU Plan
 
 - Date: September 10, 2026
-- Status: Remote matrix complete; maximum does not meet a 10 ms Free-plan target
+- Status: Representative-size reliability batch passed; maximum does not meet a 10 ms Free-plan target
 - Related local gate: `docs/spikes/0045-local-direct-attachment-sizes.md`
 
 ## Question
@@ -77,6 +77,10 @@ The harness intentionally models the CPU-heavy initial finalization and two-reci
 
 After the reduced-photo implementation, a manually completed local release with a fresh camera capture produced a 49,755-byte final PDF. The tester confirmed that both the camera preview and PDF photograph remained clear and sufficiently large for the intended evidence. This representative document size is close to the 40,858-byte remote case that recorded 5 ms CPU, so a repeated remote batch at 49,755 bytes is the next relevant Free-plan reliability gate.
 
+That representative-size reliability gate was then run against a fresh deployment of the isolated Worker. All 20 synthetic 49,755-byte requests returned HTTP 200. Every response reported matching production and signer attachment content, no storage, and no email. Client-observed elapsed time was 44-97 ms after the first 385 ms request, which included cold-start and network effects.
+
+Nine of those invocations remained available in the terminal's Cloudflare trace history. All nine had `outcome: ok`, were not truncated, and recorded 4-5 ms of CPU time with 4-7 ms wall time. The terminal discarded the older trace entries, so this document does not claim CPU measurements for all 20 requests. The evidence therefore consists of a 20-of-20 functional sample and a nine-of-nine captured CPU sample below the nominal 10 ms Free-plan target.
+
 No repeated 3 MB batch was run because the first matrix already disproved the 10 ms maximum-size target. The tail output contained the temporary authorization header and network metadata, so raw trace output was not retained in the repository. Only the sanitized measurements above were preserved.
 
 ## Cleanup
@@ -85,4 +89,4 @@ After measurement, the disposable Worker was deleted and the temporary trigger e
 
 ## Conclusion
 
-**Functional remote matrix passed; strict Free-plan maximum-size CPU gate failed.** It cannot be proven that 3 MB direct preparation fits a 10 ms CPU ceiling. The implementation should retain the one-encoding optimization, measure the newly reduced real PDF, verify the actual account plan, and then either lower the PDF limit or explicitly accept the applicable Workers plan.
+**Representative-size reliability gate passed; strict Free-plan maximum-size CPU gate failed.** The measured 49,755-byte release size has encouraging evidence for the current Free-plan architecture: 20 of 20 requests completed successfully, and all nine captured CPU traces stayed at 4-5 ms. This does not establish that the existing 3 MB maximum is safe under a 10 ms ceiling. Before production, SealProof should set and enforce a final-PDF size limit supported by repeated evidence, with deliberate headroom above representative releases and below sizes already shown to exceed the target.
