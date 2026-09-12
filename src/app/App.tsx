@@ -1,4 +1,5 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { needsDeliveryUpdates, startStatusPolling } from "./status-polling";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   productionSetupSchema,
   SYNTHETIC_RELEASE_TEXT,
@@ -84,25 +85,25 @@ export function App() {
     return () => { active = false; };
   }, [localRuntime, publicConfig, screen]);
 
+  const polling = useRef<ReturnType<typeof startStatusPolling> | undefined>(undefined);
+  const shouldPoll = !localRuntime && !!finalizedRelease && !finalizationPending
+    && (screen === "sealedLocal" || screen === "productionCloseout")
+    && needsDeliveryUpdates(releaseStatus);
   useEffect(() => {
-    if (localRuntime || screen !== "sealedLocal" || !finalizedRelease
-      || releaseStatus?.releaseState !== "SEALED_AWAITING_DELIVERY") return;
-    let active = true;
-    const poll = async () => {
-      try {
+    if (!shouldPoll || !finalizedRelease) return;
+    const controller = startStatusPolling({
+      expiresAt: finalizedRelease.expiresAt,
+      visibility: document,
+      read: async () => {
         const { requestReleaseStatus } = await import("./finalization-client");
-        const status = await requestReleaseStatus(finalizedRelease);
-        if (active) setReleaseStatus(status);
-      } catch {
-        if (active) setFailure("SealProof could not refresh delivery status. The sealed release remains subject to its original two-hour expiration.");
-      }
-    };
-    const interval = window.setInterval(() => { void poll(); }, 3_000);
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
-  }, [finalizedRelease, localRuntime, releaseStatus?.releaseState, screen]);
+        return requestReleaseStatus(finalizedRelease);
+      },
+      update: setReleaseStatus,
+      failed: () => setFailure("Delivery status could not be refreshed. Checks will resume while this page is visible; the original expiration is unchanged."),
+    });
+    polling.current = controller;
+    return () => { controller.stop(); polling.current = undefined; };
+  }, [shouldPoll, finalizedRelease]);
 
   function update(field: keyof ProductionSetup, value: string) {
     setSetup((current) => ({ ...current, [field]: value }));
@@ -329,8 +330,12 @@ export function App() {
     setBusy(true);
     setFailure(undefined);
     try {
-      const { requestReleaseStatus } = await import("./finalization-client");
-      setReleaseStatus(await requestReleaseStatus(finalizedRelease));
+      if (polling.current) {
+        await polling.current.refresh();
+      } else {
+        const { requestReleaseStatus } = await import("./finalization-client");
+        setReleaseStatus(await requestReleaseStatus(finalizedRelease));
+      }
     } catch {
       setFailure("Status is still unavailable. Your release controls remain available and the original expiration is unchanged. Email may already have been sent.");
     } finally {
@@ -692,7 +697,7 @@ export function App() {
                 <button className="primary-button" type="button" disabled={busy || !finalizedRelease || Date.now() >= finalizedRelease.expiresAt} onClick={recoverExistingRelease}>Recover this release</button>
               </div>
             )}
-            {(!releaseStatus || finalizationPending) && (
+            {finalizedRelease && (
               <div className="preview-actions">
                 <button className="secondary-button" type="button" disabled={busy} onClick={refreshReleaseStatus}>Refresh delivery status</button>
               </div>
@@ -770,7 +775,7 @@ export function App() {
                     <p className="privacy-note">A submission step did not complete. The exact PDF, hash, and original expiration are unchanged; retrying uses the existing attempt and idempotency key.</p>
                   </div>
                 )}
-                <p className="privacy-note" role="status">Checking authenticated delivery status every few seconds. You may leave this page open; access still expires at the original two-hour deadline.</p>
+                <p className="privacy-note" role="status">Checking delivery status while this page is visible, less often as time passes. You can refresh manually; access still expires at the original two-hour deadline.</p>
               </>
             ) : (
               <button className="primary-button" type="button" onClick={() => show("productionCloseout")} disabled={busy}>I am production and have the device</button>
@@ -781,6 +786,7 @@ export function App() {
           <section className="panel" aria-labelledby="production-closeout-heading">
             <p className="eyebrow">Production closeout</p>
             <h1 id="production-closeout-heading">Choose the final test action.</h1>
+            <button className="secondary-button" type="button" disabled={busy} onClick={refreshReleaseStatus}>Refresh delivery status</button>
             <p className="lede">Production may download the browser-held copy, retry an eligible failed delivery, or close the release. Closing immediately deletes SealProof's temporary PDF and personal information; emailed copies remain with Resend and their recipients.</p>
             {releaseStatus?.releaseState === "DELIVERY_FAILED" && (
               <div className="preview-actions">
