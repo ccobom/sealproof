@@ -56,6 +56,8 @@ export function App() {
   const [publicConfig, setPublicConfig] = useState<PublicConfig>();
   const [turnstileToken, setTurnstileToken] = useState<string>();
   const [turnstileResetVersion, setTurnstileResetVersion] = useState(0);
+  const finalizationPending = releaseStatus?.releaseState === "FINALIZING"
+    || (!releaseStatus && finalizedRelease?.outcome === "pending_recovery");
   const localRuntime = LOCAL_RUNTIME_HOSTS.has(window.location.hostname);
   const updateTurnstileToken = useCallback((token: string | undefined) => {
     setTurnstileToken(token);
@@ -289,6 +291,34 @@ export function App() {
         setTurnstileToken(undefined);
         setTurnstileResetVersion((value) => value + 1);
       }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function recoverExistingRelease() {
+    if (!finalizedRelease || busy) return;
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      const { recoverFinalization, requestReleaseStatus } = await import("./finalization-client");
+      const outcome = await recoverFinalization(finalizedRelease);
+      if (outcome === "waiting_for_pdf") {
+        setFailure("The stored PDF is not available yet. Finalization remains incomplete and recovery has not sent email. You may try recovery again or close this release; its original expiration is unchanged.");
+        return;
+      }
+      const recovered = { ...finalizedRelease, outcome: "sealed" as const };
+      setFinalizedRelease(recovered);
+      setReleaseStatus(undefined);
+      try {
+        setReleaseStatus(await requestReleaseStatus(recovered));
+      } catch {
+        setFailure("Finalization completed, but delivery status is unavailable. Email may already have been sent. Refresh status for this same release.");
+      }
+    } catch (error) {
+      setFailure(error instanceof FinalizationRequestError && error.status === 503
+        ? "Recovery is temporarily unavailable. Keep this release's controls and try again later; the original expiration is unchanged."
+        : "Recovery could not confirm finalization. Refresh status before trying again. If the stored PDF cannot be verified, close this release; do not assume it was sealed or emailed.");
     } finally {
       setBusy(false);
     }
@@ -627,8 +657,10 @@ export function App() {
           </section>
         ) : screen === "sealedLocal" ? (
           <section className="panel" aria-labelledby="sealed-local-heading">
-            <p className="eyebrow">{!releaseStatus ? "Release controls" : localRuntime ? "Encrypted local test" : "Contract sealed"}</p>
-            <h1 id="sealed-local-heading">{!releaseStatus
+            <p className="eyebrow">{finalizationPending ? "Finalization incomplete" : !releaseStatus ? "Release controls" : localRuntime ? "Encrypted local test" : "Contract sealed"}</p>
+            <h1 id="sealed-local-heading">{finalizationPending
+              ? "The release is not sealed yet."
+              : !releaseStatus
               ? "Delivery status is unavailable."
               : localRuntime
               ? "The exact PDF is sealed in local storage."
@@ -637,7 +669,9 @@ export function App() {
                 : releaseStatus?.releaseState === "DELIVERY_FAILED"
                   ? "A delivery failed."
                   : "The contract is sealed. Awaiting delivery."}</h1>
-            <p className="lede">{!releaseStatus
+            <p className="lede">{finalizationPending
+              ? "Finalization was interrupted. Recover this same release to verify the stored PDF and complete sealing before delivery. Its original expiration still applies. You can also hand the device back to production to close the release."
+              : !releaseStatus
               ? "Keep this page open to manage the existing release. You can refresh status or hand the device back to production to download the PDF or close the release. The original expiration still applies."
               : localRuntime
               ? "The Worker independently matched the document hash and stored only encrypted PDF bytes. No email was sent and no live service was contacted."
@@ -653,7 +687,12 @@ export function App() {
               <p><strong>Signer delivery:</strong> {releaseStatus?.signerDeliveryOutcome ?? "Unavailable"}</p>
               <p><strong>SHA-256:</strong> <code className="inline-hash">{finalizedRelease?.documentHash}</code></p>
             </div>
-            {!releaseStatus && (
+            {finalizationPending && (
+              <div className="preview-actions">
+                <button className="primary-button" type="button" disabled={busy || !finalizedRelease || Date.now() >= finalizedRelease.expiresAt} onClick={recoverExistingRelease}>Recover this release</button>
+              </div>
+            )}
+            {(!releaseStatus || finalizationPending) && (
               <div className="preview-actions">
                 <button className="secondary-button" type="button" disabled={busy} onClick={refreshReleaseStatus}>Refresh delivery status</button>
               </div>
@@ -711,7 +750,7 @@ export function App() {
             {localRuntime ? (
               <div className="preview-actions">
                 {finalPdfUrl && finalPdfBytes && (
-                  <a className="secondary-button" href={finalPdfUrl} download="sealproof-local-sealed-test.pdf">Download browser copy</a>
+                  <a className="secondary-button" href={finalPdfUrl} download="sealproof-release.pdf">Download browser copy</a>
                 )}
                 <button className="primary-button" type="button" onClick={closeLocalRelease} disabled={busy}>
                   {busy ? "Deleting local Worker copy…" : "Delete Worker copy and close test"}

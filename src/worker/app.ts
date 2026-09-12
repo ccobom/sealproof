@@ -1,3 +1,4 @@
+import { handleRecoverFinalizationRequest } from "../http/recover-finalization-route";
 import { handleDeliveryAvailabilityRequest } from "../http/delivery-availability-route";
 import {
   handleAdmissionRequest,
@@ -44,6 +45,9 @@ export function createSealProofWorker(dependencies: SealProofWorkerDependencies 
     async fetch(request: Request, environment: SealProofEnvironment): Promise<Response> {
       const path = new URL(request.url).pathname;
       if (path === "/api/delivery-availability") return handleDeliveryAvailabilityRequest(request, environment, now());
+      if (new RegExp("^/api/releases/[A-Za-z0-9_-]{16,128}/recover$").test(path)) {
+        return handleRecoverFinalizationRequest(request, environment, now(), dependencies.afterSealed);
+      }
       if (path === "/api/releases/admissions") {
         return handleAdmissionRequest(request, environment, now(), fetcher);
       }

@@ -97,7 +97,7 @@ type PrivateBrowserRequestInit = RequestInit & {
 
 export class FinalizationRequestError extends Error {
   constructor(
-    readonly stage: "admission" | "upload" | "status" | "closeout" | "fakeDelivery" | "retry",
+    readonly stage: "admission" | "upload" | "status" | "closeout" | "fakeDelivery" | "retry" | "recovery",
     readonly status: number | undefined,
   ) {
     super(`SealProof ${stage} request failed`);
@@ -262,4 +262,25 @@ export async function uploadReviewedPdf(
     throw new FinalizationRequestError("upload", response.status);
   }
   return parsed.data;
+}
+
+export async function recoverFinalization(
+  release: Pick<FinalizedRelease, "transactionId" | "downloadCapability">,
+  fetcher: FinalizationFetcher = fetch,
+): Promise<"sealed" | "already_sealed" | "waiting_for_pdf"> {
+  const request: PrivateBrowserRequestInit = {
+    method: "POST",
+    headers: { authorization: `Bearer ${release.downloadCapability}` },
+    cache: "no-store", credentials: "omit", redirect: "error",
+  };
+  const response = await fetcher(`/api/releases/${release.transactionId}/recover`, request);
+  if (!response.ok) throw new FinalizationRequestError("recovery", response.status);
+  const parsed = z.strictObject({
+    transactionId: z.uuid(),
+    outcome: z.enum(["sealed", "already_sealed", "waiting_for_pdf"]),
+  }).safeParse(await parsedJson(response, "recovery"));
+  if (!parsed.success || parsed.data.transactionId !== release.transactionId) {
+    throw new FinalizationRequestError("recovery", response.status);
+  }
+  return parsed.data.outcome;
 }
