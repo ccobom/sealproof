@@ -12,14 +12,16 @@ CREATE TABLE delivery_budget (
 
 -- This runs before the insert's UPSERT, so NEW.attempts is the increment,
 -- including when several reservations share the same millisecond.
+-- Parenthesize CASE so the remote D1 parser does not confuse its END with
+-- the trigger END (cloudflare/workers-sdk#4727).
 CREATE TRIGGER enforce_delivery_budget BEFORE INSERT ON delivery_budget
 BEGIN
-  SELECT CASE WHEN COALESCE((
+  SELECT (CASE WHEN COALESCE((
     SELECT SUM(attempts) FROM delivery_budget
     WHERE reserved_at > NEW.reserved_at - 86400000
   ), 0) + NEW.attempts > COALESCE((
     SELECT attempt_limit FROM delivery_budget_policy WHERE id = 1
-  ), 0) THEN RAISE(ABORT, 'DELIVERY_BUDGET_EXHAUSTED') END;
+  ), 0) THEN RAISE(ABORT, 'DELIVERY_BUDGET_EXHAUSTED') END);
 END;
 
 -- Initial role inserts share the batch transaction with ticket consumption.
