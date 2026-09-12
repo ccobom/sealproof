@@ -786,6 +786,11 @@ export function App() {
           <section className="panel" aria-labelledby="production-closeout-heading">
             <p className="eyebrow">Production closeout</p>
             <h1 id="production-closeout-heading">Choose the final test action.</h1>
+            <div className="handoff-card" role="status" aria-live="polite" aria-atomic="true">
+              <p><strong>Worker status:</strong> {releaseStatus?.releaseState ?? "Unavailable"}</p>
+              <p><strong>Production delivery:</strong> {releaseStatus?.productionDeliveryOutcome ?? "Unavailable"}</p>
+              <p><strong>Signer delivery:</strong> {releaseStatus?.signerDeliveryOutcome ?? "Unavailable"}</p>
+            </div>
             <button className="secondary-button" type="button" disabled={busy} onClick={refreshReleaseStatus}>Refresh delivery status</button>
             <p className="lede">Production may download the browser-held copy, retry an eligible failed delivery, or close the release. Closing immediately deletes SealProof's temporary PDF and personal information; emailed copies remain with Resend and their recipients.</p>
             {releaseStatus?.releaseState === "DELIVERY_FAILED" && (
